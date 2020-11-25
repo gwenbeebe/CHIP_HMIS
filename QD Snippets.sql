@@ -1,5 +1,5 @@
 ---------------------------------------------------
-------------- calculate client age ----------------
+-------- calculate client age at entry ------------
 ---------------------------------------------------
 
 (
@@ -42,4 +42,22 @@
 		GROUP BY VI.ClientID	
 		) LastVI 
 		ON LastVI.VID = V.VulnerabilityID		 
+)
+
+
+---------------------------------------------------
+--- get first shelter entry in last six months ----
+---------------------------------------------------
+
+(SELECT min(E.[EnrollDate])
+FROM Enrollment E (NOLOCK) 
+INNER JOIN EnrollmentCase EC(NOLOCK) 
+	ON E.CaseID=EC.CaseID
+		AND EC.ActiveStatus <> 'D'
+		AND E.[EnrollDate]>= DATEADD(MONTH, -6, GETDATE()) 
+INNER JOIN Programs P (NOLOCK) 
+	ON EC.ProgramID = P.ProgramID
+		AND P.ProgramType = 1
+WHERE E.ClientID = cmClient.[ClientID]
+GROUP BY E.[ClientID]		 
 )
