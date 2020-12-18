@@ -1,4 +1,11 @@
 ---------------------------------------------------
+------------------- NOTES -------------------------
+---------------------------------------------------
+
+VI-SPDAT sub-scores are in VISPDATFamily. for family, single, and TAY
+VI-SPDAT category scores are in VISPDAT. for family, single, and TAY
+
+---------------------------------------------------
 -------- calculate client age at entry ------------
 ---------------------------------------------------
 
@@ -61,3 +68,43 @@ INNER JOIN Programs P (NOLOCK)
 WHERE E.ClientID = cmClient.[ClientID]
 GROUP BY E.[ClientID]		 
 )
+
+
+---------------------------------------------------
+------------ get number of case members -----------
+---------------------------------------------------
+
+(SELECT COUNT(*)
+	FROM Enrollment E
+	WHERE E.CaseID = Enrollment.CaseID
+		AND E.ActiveStatus = 'A'
+		-- AND E.ExitDate IS NULL		-- use this line for number of people currently enrolled in case
+	GROUP BY E.CaseID)
+
+
+---------------------------------------------------
+----- use in filters with start parameter ---------
+----- to include information for clients ----------
+------------- active in period --------------------
+---------------------------------------------------
+
+(SELECT max(case 
+		when E.[EnrollDate] is null then getdate() 
+			else E.[EnrollDate] end
+		) 
+FROM Enrollment E (NOLOCK)  
+INNER JOIN EnrollmentCase EC(NOLOCK)  	
+ON E.CaseID=EC.CaseID 		
+	AND EC.ActiveStatus <> 'D' 
+WHERE E.ClientID = cmClient.[ClientID] 
+GROUP BY E.[ClientID])
+
+
+
+
+
+
+
+
+
+
