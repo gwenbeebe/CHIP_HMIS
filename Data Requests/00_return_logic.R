@@ -61,16 +61,16 @@ excluded_PH_entries <- ph_enrollments %>%
   select(PH_En_EnrollID) %>%
   distinct()
 
+##  remove enrollments identified above from enrollments used to flag returns
+returning_entries <- df_for_returns %>%
+  anti_join(excluded_PH_entries, by = c("EnrollID" = "PH_En_EnrollID")) %>%
+  setNames(paste("R_En", colnames(df_for_returns), sep = "_"))
+
 ##  get all enrollments with permanent exits
 permanent_exits <- df_for_returns %>%
   filter(ExitDestination %in% permanent_destinations) %>%
   setNames(paste("PEx", colnames(df_for_returns), sep = "_")) %>%
   mutate(two_years_after_exit = PEx_ExitDate + dyears(2))
-
-##  remove enrollments identified above from enrollments used to flag returns
-returning_entries <- df_for_returns %>%
-  anti_join(excluded_PH_entries, by = c("EnrollID" = "PH_En_EnrollID")) %>%
-  setNames(paste("R_En", colnames(df_for_returns), sep = "_"))
 
 ## create flag for all enrollments with a qualifying returning entry
 return_flags <- permanent_exits %>%
@@ -90,3 +90,6 @@ return_flags <- permanent_exits %>%
   ungroup() %>%
   select(PEx_EnrollID, return_flag) %>%
   distinct()
+
+rm(list = ls()[!(ls() %in% c("return_flags"))])
+save.image("images/return_flags.RData")
