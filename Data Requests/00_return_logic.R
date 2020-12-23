@@ -36,7 +36,7 @@ permanent_destinations <- c("Rental by client, no ongoing housing subsidy",
                             "Staying or living with friends, permanent tenure")
 
 ##  Update to include diversion
-include_diversion = FALSE
+include_diversion = TRUE
 if (include_diversion) {
   
   all_data <- all_data %>%
@@ -104,7 +104,8 @@ return_flags <- permanent_exits %>%
          return_flag = if_else(is.na(max(return_flag)), 0, max(return_flag))) %>%
   ungroup() %>%
   select(PEx_EnrollID, return_flag) %>%
-  distinct()
+  distinct() %>%
+  rename(EnrollID = PEx_EnrollID)
 
 rm(list = ls()[!(ls() %in% c("return_flags"))])
 save.image("images/return_flags.RData")
