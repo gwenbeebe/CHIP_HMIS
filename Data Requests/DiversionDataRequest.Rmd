@@ -9,12 +9,15 @@ output:
 
 ```{r setup, include=FALSE}
 
+rm(list = ls())
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(lubridate)
 library(pander)
 library(dplyr)
 library(janitor)
+library(tidyr)
+library(readxl)
 
 load("C:/Users/GwenBeebe/Documents/R/CHIP_HMIS/images/all_data.RData")
 load("C:/Users/GwenBeebe/Documents/R/CHIP_HMIS/images/return_flags.RData")
@@ -28,16 +31,19 @@ included_program_types <- c("Transitional housing", "PH - Permanent Supportive H
                        "Emergency shelter", "Homelessness Prevention", "Street outreach", "PH - Rapid Re-Housing",
                        "Safe Haven", "Coordinated Entry", "Diversion")
 
-##  set time period for reporting and apply program type filter
-active_in_period <- all_data %>%
-  filter(EnrollDate < ReportEnd &
-           (is.na(ExitDate) | ExitDate >= ReportStart)) %>%
+##  add diversion category to all_data and apply program type filter
+all_data <- all_data %>%
   mutate(ProgramType = 
              if_else(ProgramName == "Diversion" 
                      | ProgramName == "IHN - Diversion"
                      | ProgramName == "YHDP - Diversion",
                      "Diversion", ProgramType)) %>%
   filter(ProgramType %in% included_program_types)
+
+##  set time period for reporting
+active_in_period <- all_data %>%
+  filter(EnrollDate < ReportEnd &
+           (is.na(ExitDate) | ExitDate >= ReportStart))
 
 ```
 
@@ -53,6 +59,7 @@ What outcomes are you seeing? (demographics)
 
 Is there any other information or outcomes being tracked such as length of follow-up services, enrollments in other programs, whether financial assistance is being provided and how much?
 
+Note: these percentages are by row.
 ```{r Diversion}
 
 ##  filter to only show most recent diversion entry by heads of household
@@ -87,7 +94,8 @@ knitr::kable(
     adorn_percentages("row") %>%
     adorn_pct_formatting(0) %>%
     adorn_ns() %>%
-    adorn_title("top", "Race", "Entered Shelter?")
+    adorn_title("top", "Race", "Entered Shelter?"),
+  caption = "Households Accessing Shelter After Diversion Entry"
   )
 
 ## display whether households accessed shelter after diversion entry by ethnicity
@@ -98,12 +106,13 @@ knitr::kable(
     adorn_percentages("row") %>%
     adorn_pct_formatting(0) %>%
     adorn_ns() %>%
-    adorn_title("top", "Ethnicity", "Entered Shelter?")
+    adorn_title("top", "Ethnicity", "Entered Shelter?"),
+  caption = "Households Accessing Shelter After Diversion Entry"
   )
 
 ##  flag diversion returns by head of household
 returning_from_diversion <- diversion_households_active_in_period %>%
-  left_join(return_flags, by = c("EnrollID" = "PEx_EnrollID")) %>%
+  left_join(return_flags, by = "EnrollID") %>%
   mutate(return_flag = case_when(
     is.na(return_flag) ~ "No Permanent Exit",
           return_flag == 0 ~ "No Return Yet",
@@ -115,7 +124,8 @@ knitr::kable(
   returning_from_diversion %>%
     tabyl(return_flag) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "Households", "Percent"))
+    setNames(c("", "Households", "Percent")),
+  caption = "Households Returning After Successful Diversion"
   )
 
 ```
@@ -129,8 +139,7 @@ Total Households Served
 
 For this section, I counted each person once. This means if they appeared in a family at all, I put them in the family category; those shown in the adults only and minor categories did not appear in any other household type (if a minor aged in and had another entry as an adult, they are shown in the adults only category). Categorization is based on age at entry.
 
-All following sections include information for the following program types unless otherwise noted: Transitional housing, PH - Permanent Supportive Housing (disability required for entry), PH – Housing Only, PH – Housing with Services (no disability required for entry),
-Emergency shelter, Homelessness Prevention, Street outreach, PH - Rapid Re-Housing, Safe Haven, Coordinated Entry, Diversion.
+All following sections include information for the following program types unless otherwise noted: Transitional housing, PH - Permanent Supportive Housing (disability required for entry), PH – Housing Only, PH – Housing with Services (no disability required for entry), Emergency shelter, Homelessness Prevention, Street outreach, PH - Rapid Re-Housing, Safe Haven, Coordinated Entry, Diversion.
 
 ```{r households}
 
@@ -171,7 +180,8 @@ knitr::kable(
   household_information %>%
     tabyl(household_type) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People by Household Type"
   )
 
 ## show distinct household count by household type
@@ -180,7 +190,8 @@ knitr::kable(
     filter(`Head of Household?` == "Yes") %>%
     tabyl(household_type) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "Households", "Percent"))
+    setNames(c("", "Households", "Percent")),
+  caption = "Count of Households by Household Type"
   )
 
 ```
@@ -191,9 +202,23 @@ Total People Served
 - Age groups (APR categories)
 - Disability
 
-Race, ethnicity, and disabling condition use the most recent reported value for each person. If a client fell into two age groups due to a birthday, the age at the time of the more recent entry was used.
+Race and ethnicity use the most recent reported value for each person. If a client fell into two age groups due to a birthday, the age at the time of the more recent entry was used. For disabling condition, all reported values are included.
 
 ```{r total served}
+
+##  get disability information
+disabling_conditions <- 
+  read_excel("C:/Users/GwenBeebe/Documents/R/CHIP_HMIS/Data Requests/data/Disabling Conditions 12.23.20.xlsx") 
+
+##  create disabling condition table
+disability_information <- active_in_period %>%
+  select(ClientID) %>%
+  distinct() %>%
+  left_join(disabling_conditions, by = "ClientID") %>%
+  mutate_all(~ replace_na(.x, 0)) %>% 
+  select(-DisablingCondition, -`History of Foster Care`, -`Felony Conviction`) %>%
+  pivot_longer(!ClientID, names_to = "Disability", values_to = "status") %>%
+  mutate(Disability = if_else(Disability == "Other", "Other Disability", Disability))
 
 ##  create client labels and keep one per person
 client_information <- active_in_period %>%
@@ -201,6 +226,13 @@ client_information <- active_in_period %>%
   arrange(desc(`Age at Entry`)) %>%
   slice(1L) %>%
   ungroup() %>%
+  left_join(disability_information %>%
+              group_by(ClientID) %>%
+              select(-Disability) %>%
+              arrange(desc(status)) %>%
+              slice(1L) %>%
+              ungroup(), 
+            by = "ClientID") %>%
   mutate(age_group = case_when(
     `Age at Entry` < 5 ~ "Under 5",
     `Age at Entry` <= 12 ~ "5-12",
@@ -222,9 +254,8 @@ client_information <- active_in_period %>%
       )
     ),
   DisablingCondition = case_when(
-    DisablingCondition == 1 ~ "Disabled",
-    DisablingCondition == 0 ~ "Not Disabled",
-    TRUE ~ "Unknown"
+    DisablingCondition == 1 | status == 1 ~ "Disabled",
+    TRUE ~ "Not Known Disabled"
   ))
 
 ##  show count of people by race
@@ -232,7 +263,8 @@ knitr::kable(
   client_information %>%
     tabyl(RaceDesc, show_na = FALSE) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People by Race"
   )
 
 ##  show count of people by ethnicity
@@ -240,7 +272,8 @@ knitr::kable(
   client_information %>%
     tabyl(HUDEthnicity, show_na = FALSE) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People by Ethnicity"
   )
 
 ##  show count of people by age group
@@ -248,7 +281,8 @@ knitr::kable(
   client_information %>%
     tabyl(age_group, show_na = FALSE) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People by Age Group"
   )
 
 ##  show count of people by disability status
@@ -256,8 +290,18 @@ knitr::kable(
   client_information %>%
     tabyl(DisablingCondition, show_na = FALSE) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People by Disability Status"
   )
+
+knitr::kable(
+  disability_information %>%
+  group_by(Disability) %>%
+  summarise(People = sum(status)) %>%
+  mutate(Percent = paste0(round(People/nrow(client_information) * 100, 1), "%")),
+  caption = "Count of People by Disability Type"
+  )
+
 
 ```
 
@@ -266,6 +310,7 @@ knitr::kable(
 - Race by age groups and ethnicity by age groups (wish list for early 2021) 
 - Race/age group and disability or no disability (UDE -  (Y/N))
 
+Note: these percentages are by table.
 ```{r race and ethnicity}
 
 ##  show count of people by race and age group
@@ -276,7 +321,8 @@ knitr::kable(
     adorn_percentages("all") %>%
     adorn_pct_formatting() %>%
     adorn_ns() %>%
-    adorn_title("top", "Race", "Age Group")
+    adorn_title("top", "Race", "Age Group"),
+  caption = "Count of People by Race and Age"
   )
 
 ##  show count of people by ethnicity and age group
@@ -287,7 +333,8 @@ knitr::kable(
     adorn_percentages("all") %>%
     adorn_pct_formatting() %>%
     adorn_ns() %>%
-    adorn_title("top", "Ethnicity", "Age Group")
+    adorn_title("top", "Ethnicity", "Age Group"),
+  caption = "Count of People by Ethnicity and Age"
   )
 
 ##  show count of people by race and disability status
@@ -298,7 +345,8 @@ knitr::kable(
     adorn_percentages("all") %>%
     adorn_pct_formatting() %>%
     adorn_ns() %>%
-    adorn_title("top", "Race", "")
+    adorn_title("top", "Race", ""),
+  caption = "Count of People by Race and Disability Status"
   )
 
 ##  show count of people by ethnicity and disability status
@@ -309,7 +357,8 @@ knitr::kable(
     adorn_percentages("all") %>%
     adorn_pct_formatting() %>%
     adorn_ns() %>%
-    adorn_title("top", "Ethnicity", "")
+    adorn_title("top", "Ethnicity", ""),
+  caption = "Count of People by Ethnicity and Disability Status"
   )
 
 ##  show count of people by age group and disability status
@@ -320,7 +369,8 @@ knitr::kable(
     adorn_percentages("all") %>%
     adorn_pct_formatting() %>%
     adorn_ns() %>%
-    adorn_title("top", "Age Group", "")
+    adorn_title("top", "Age Group", ""),
+  caption = "Count of People by Age and Disability Status"
   )
 
 ```
@@ -345,7 +395,8 @@ knitr::kable(
   entries_during_period %>%
     tabyl(`Prior Living Situation(43)`) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "Entries", "Percent"))
+    setNames(c("", "Entries", "Percent")),
+  caption = "Count of Entries by Prior Residence"
   )
 
 ##  show distribution of exit destinations across entries from couching situations
@@ -356,7 +407,8 @@ knitr::kable(
              !is.na(ExitDestination)) %>%
     tabyl(ExitDestination) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "Entries", "Percent"))
+    setNames(c("", "Entries", "Percent")),
+  caption = "Count of Exits from Couching Entries"
   )
 
 ## show distribution of race for clients with any entry from incarceration during report period
@@ -367,7 +419,8 @@ knitr::kable(
     distinct() %>%
     tabyl(RaceDesc, show_na = FALSE) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of Race for Entries from Incarceration"
   )
 
 knitr::kable(
@@ -377,11 +430,158 @@ knitr::kable(
     distinct() %>%
     tabyl(HUDEthnicity, show_na = FALSE) %>%
     adorn_pct_formatting(0) %>%
-    setNames(c("", "People", "Percent"))
+    setNames(c("", "People", "Percent")),
+  caption = "Count of Ethnicity for Entries from Incarceration"
   )
 
 ```
 
 % and number of people returning to homelessness (397 persons on 2019 SysPM)
 - Demographics (gender, race, under 25 and 25 and over) and any known living situations, length of time at shelter or project before leaving? (is this possible within the system?)
+
+Returns calculations do not include information for homelessness prevention, as this program type should not target literally homeless people. These calculations look at whether people exiting to a permanent destination between 10/1/17 and 9/30/18 returned to homelessness within two years of their first permanent exit in that period. They are higher than the SPM numbers (555 for this same period, according to the canned HMIS report run on 12.23.20) because they count re-entering coordinated entry as a return to homelessness.
+
+Note: these percentages are by row.
+```{r returns}
+
+##  set program types again
+return_program_types <- c("Transitional housing", "PH - Permanent Supportive Housing (disability required for entry)",
+                          "PH – Housing Only", "PH – Housing with Services (no disability required for entry)",
+                          "Emergency shelter", "Street outreach", "PH - Rapid Re-Housing", "Safe Haven",
+                          "Coordinated Entry", "Diversion")
+
+## get relevant exits with return flag
+exited_two_years_ago <- all_data %>%
+  left_join(return_flags, by = "EnrollID") %>%
+  filter(ExitDate < ReportEnd - dyears(2) &
+           ExitDate >= ReportStart - dyears(2) &
+           ProgramType %in% return_program_types &
+           !is.na(return_flag)) %>%
+  group_by(ClientID) %>%
+  arrange(ExitDate) %>%
+  slice(1L) %>%
+  ungroup() %>%
+  mutate(return_flag = if_else(return_flag == 1, "Returned", "Did Not Return"))
+
+##  show count of people by return status
+knitr::kable(
+  exited_two_years_ago %>%
+    tabyl(return_flag, show_na = FALSE) %>%
+    adorn_pct_formatting(0) %>%
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People Returning"
+  )
+
+## show distribution of returns for clients by gender
+knitr::kable(
+  exited_two_years_ago %>%
+    mutate(Gender = case_when(Gender == "Client refused" 
+                     | Gender == "Data not collected" ~ "Unknown", 
+                     Gender == "Trans Female (MTF or Male to Female)" ~ "Trans Female",
+                     TRUE ~ Gender)) %>%
+    tabyl(Gender, return_flag, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(0) %>%
+    adorn_ns() %>%
+    adorn_title("top", "Gender", ""),
+  caption = "Count of People Returning by Gender"
+  )
+
+## show distribution of returns for clients by race and ethnicity
+knitr::kable(
+  exited_two_years_ago %>%
+    tabyl(RaceDesc, return_flag, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(0) %>%
+    adorn_ns() %>%
+    adorn_title("top", "Race", ""),
+  caption = "Count of People Returning by Race"
+  )
+
+knitr::kable(
+  exited_two_years_ago %>%
+    tabyl(HUDEthnicity, return_flag, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(0) %>%
+    adorn_ns() %>%
+    adorn_title("top", "Ethnicity", ""),
+  caption = "Count of People Returning by Ethnicity"
+  )
+
+## show distribution of returns for clients by simple age group
+knitr::kable(
+  exited_two_years_ago %>%
+    mutate(simple_age_group = if_else(`Age at Entry` < 25, "Under 25", "Over 25")) %>%
+    tabyl(simple_age_group, return_flag, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(0) %>%
+    adorn_ns() %>%
+    adorn_title("top", "Age", ""),
+  caption = "Count of People Returning by Age"
+  )
+
+## show distribution of returns for clients by original destination
+knitr::kable(
+  exited_two_years_ago %>%
+    tabyl(ExitDestination, return_flag, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(0) %>%
+    adorn_ns() %>%
+    adorn_title("top", "Original Destination", ""),
+  caption = "Count of People Returning by Destination"
+  )
+
+## show distribution of returns for clients by time in program
+knitr::kable(
+  exited_two_years_ago %>%
+    mutate(time_in_program = as.duration(EnrollDate %--% ExitDate) / ddays(1),
+           time_in_program = case_when(time_in_program < 15 ~ "14 days or less",
+                                       time_in_program < 31 ~ "15-30 days",
+                                       time_in_program < 91 ~ "31-90 days",
+                                       time_in_program < 181 ~ "91-180 days",
+                                       time_in_program < 365 ~ "181-365 days", 
+                                       time_in_program < 731 ~ "366-730 days",
+                                       TRUE ~ "731+ days"),
+           time_in_program = factor(
+             time_in_program,
+             levels = c(
+               "14 days or less", "15-30 days", "31-90 days", "91-180 days",
+               "181-365 days",  "366-730 days", "731+ days")
+    )) %>%
+    tabyl(time_in_program, return_flag, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(0) %>%
+    adorn_ns() %>%
+    adorn_title("top", "Time in Program", ""),
+  caption = "Count of People Returning by Time in Program"
+  )
+
+## get next "prior living situation" for each returning client
+return_entry <- exited_two_years_ago %>%
+  filter(return_flag == "Returned") %>%
+  setNames(paste("Org", colnames(exited_two_years_ago), sep = "_")) %>%
+  left_join(all_data, by = c("Org_ClientID" = "ClientID")) %>%
+  filter(EnrollDate >= Org_ExitDate &
+           Org_EnrollID != EnrollID) %>%
+  arrange(EnrollDate) %>%
+  group_by(Org_ClientID) %>%
+  slice(1L) %>%
+  ungroup()
+
+## show distribution of returns for clients by prior residence at return
+knitr::kable(
+  return_entry %>%
+    tabyl(`Prior Living Situation(43)`, show_na = FALSE) %>%
+    adorn_pct_formatting(0) %>%
+    setNames(c("", "People", "Percent")),
+  caption = "Count of People Returning from Residence Type"
+  )
+
+```
 
