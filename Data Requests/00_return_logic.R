@@ -93,12 +93,13 @@ return_flags <- permanent_exits %>%
   group_by(PEx_EnrollID) %>%
   mutate(return_flag = 
            if_else(
-             (R_En_ProgramType %in% housing_program_types &
+             R_En_EnrollID != PEx_EnrollID &
+             ((R_En_ProgramType %in% housing_program_types &
                 R_En_EnrollDate >= PEx_two_weeks_after_exit &
                 R_En_EnrollDate <= two_years_after_exit) |
                (!R_En_ProgramType %in% housing_program_types &
                   R_En_EnrollDate >= PEx_ExitDate &
-                  R_En_EnrollDate <= two_years_after_exit),
+                  R_En_EnrollDate <= two_years_after_exit)),
              1, 0
            ),
          return_flag = if_else(is.na(max(return_flag)), 0, max(return_flag))) %>%
@@ -106,6 +107,7 @@ return_flags <- permanent_exits %>%
   select(PEx_EnrollID, return_flag) %>%
   distinct() %>%
   rename(EnrollID = PEx_EnrollID)
+
 
 rm(list = ls()[!(ls() %in% c("return_flags"))])
 save.image("images/return_flags.RData")
