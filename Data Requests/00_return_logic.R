@@ -35,11 +35,26 @@ permanent_destinations <- c("Rental by client, no ongoing housing subsidy",
                             "Staying or living with family, permanent tenure",
                             "Staying or living with friends, permanent tenure")
 
+##  Update to include diversion
+include_diversion = FALSE
+if (include_diversion) {
+  
+  all_data <- all_data %>%
+    mutate(ProgramType = 
+             if_else(ProgramName == "Diversion" 
+                     | ProgramName == "IHN - Diversion"
+                     | ProgramName == "YHDP - Diversion",
+                     "Diversion", ProgramType)
+    )
+  
+  return_program_types <- append(return_program_types, "Diversion")
+  
+}
+
 df_for_returns <- all_data %>%
   filter(ProgramType %in% return_program_types) %>%
   select(ClientID, EnrollID, EnrollDate, ExitDate, ProgramType, ExitDestination) %>%
   mutate(two_weeks_after_exit = if_else(!is.na(ExitDate), ExitDate + ddays(14), NULL))
-
 
 ##  find all exits from TH or PH programs
 housing_exits <- df_for_returns %>%
