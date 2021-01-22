@@ -7,7 +7,7 @@ library(readxl)
 new_file_name <- readline(prompt="What should the generated file be called? ")
 
 ##  PM = project management, E = equity, SP = system performance
-file_to_generate <- readline(prompt="What dashboard is this for? (PM, E, SP) ")
+file_to_generate <- readline(prompt="What dashboard is this for? (PM, E, SP, YHDP) ")
 
 ##  read in file
 Enrollments <- 
@@ -136,12 +136,39 @@ if (file_to_generate == "PM") {
     select(-ProgramName, -ProgramType)
 }
 
+## add earliest return date for all enrollments with a qualifying returning entry
+return_dates <- permanent_exits %>%
+  left_join(returning_entries, by = c("PEx_ClientID" = "R_En_ClientID")) %>%
+  group_by(PEx_EnrollID) %>%
+  mutate(return_flag = 
+           if_else(
+             R_En_EnrollID != PEx_EnrollID &
+               ((R_En_ProgramType %in% housing_program_types &
+                   R_En_EnrollDate >= PEx_two_weeks_after_exit &
+                   R_En_EnrollDate <= two_years_after_exit) |
+                  (!R_En_ProgramType %in% housing_program_types &
+                     R_En_EnrollDate >= PEx_ExitDate &
+                     R_En_EnrollDate <= two_years_after_exit)),
+             1, 0
+           )) %>%
+  filter(return_flag == 1) %>%
+  arrange(PEx_EnrollID, R_En_EnrollDate) %>%
+  slice(1L) %>%
+  ungroup() %>%
+  select(PEx_EnrollID, R_En_EnrollDate) %>%
+  rename(EnrollID = PEx_EnrollID, ReturnDate = R_En_EnrollDate)
+
+dated <- Enrollments %>%
+  left_join(return_dates, by = "EnrollID")
+
 if (file_to_generate == "PM") {
-  write.xlsx(flagged, file = paste0("G:/HMIS/Dashboards/PM Dashboard/", new_file_name, ".xlsx"), na = "")
+  write_excel_csv(flagged, file = paste0("C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/Dashboards/PM Dashboard/", new_file_name, ".csv"), na = "")
 } else if (file_to_generate == "E") {
   write_excel_csv(flagged, file = paste0("G:/HMIS/Dashboards/Equity Dashboard/", new_file_name, ".csv"), na = "")
+} else if (file_to_generate == "YHDP") {
+  write_excel_csv(dated, file = paste0("C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/Dashboards/YHDP Dashboard/", new_file_name, ".csv"), na = "")
 } else {
-  write_excel_csv(flagged, file = paste0("G:/HMIS/Dashboards/System Performance Dashboard", new_file_name, ".csv"), na = "")
+  write_excel_csv(flagged, file = paste0("G:/HMIS/Dashboards/System Performance Dashboard/", new_file_name, ".csv"), na = "")
 }
 
 
