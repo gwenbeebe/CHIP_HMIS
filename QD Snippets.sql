@@ -148,3 +148,30 @@ WHERE E.ClientID = HMIS_LivingSituation.[ClientID]
 GROUP BY E.[ClientID]		 
 )
 
+---------------------------------------------------
+---------- display information for most -----------
+------------ recent outreach service --------------
+---------------------------------------------------
+
+SELECT TOP 1 concat(SC.Service, 
+	concat(' (', 
+		concat(FORMAT (S.BeginDate, 'MM/dd/yy'), ')'))) 
+FROM cmClient C (nolock) 
+INNER JOIN Service S (nolock) 
+ON C.ClientID=S.ClientID
+	AND S.BeginDate >= dateadd(month, -6,datefromparts(year(getdate()), month(getdate()), 1))
+	AND S.ActiveStatus <> 'D' 
+	AND C.ActiveStatus <> 'D'
+	AND C.ClientID=cmClient.ClientID
+INNER JOIN ServiceCode SC (nolock)
+ON S.ServiceCodeID=SC.ServiceCodeID
+	AND SC.OutreachContact = 'TRUE'
+	AND SC.S <> 'CES - Client Contact'
+	AND SC.ActiveStatus <> 'D'
+ORDER BY S.BeginDate DESC
+GROUP BY C.ClientID
+
+
+
+
+

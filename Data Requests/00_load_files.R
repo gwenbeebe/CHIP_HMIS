@@ -10,17 +10,17 @@ ReportEnd <- ymd("20201001")
 
 ##  this is the Full Demographic Table report
 Demographics <- 
-  read_excel(paste0(directory, "/Demographics - 10.1.17 - 12.23.20.xlsx")) %>%
+  read_excel(file.choose()) %>%
   mutate(RaceDesc = if_else(RaceDesc %in% c("Data not collected", "Client doesn't know", "Client refused") |
                                  is.na(RaceDesc), "Unknown", RaceDesc),
          HUDEthnicity = if_else(HUDEthnicity %in% c("Data not collected", "Client doesn't know", "Client refused") |
                                              is.na(HUDEthnicity), "Unknown", HUDEthnicity))
 Programs <- 
-  read_excel(paste0(directory, "/Programs 12.16.20.xlsx")) 
+  read_excel(file.choose()) 
 
 ##  this is the PM Dashboard Enrollments report
 Enrollments <- 
-  read_excel(paste0(directory, "/Enrollments 10.1.17 - 9.30.20.xlsx")) 
+  read_excel(file.choose()) 
 
 all_data <- Enrollments %>%
   left_join(Demographics, by = "ClientID") %>%
