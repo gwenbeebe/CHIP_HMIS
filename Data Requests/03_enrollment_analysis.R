@@ -1,12 +1,13 @@
 #library(tidyverse)
 #library(lubridate)
 library(dplyr)
-#library(readxl)
+library(readxl)
 
 ##  read in file
 Enrollments <- 
   read_excel(file.choose())
 
+##  compare assessment dates to HMIDs and track # of PH enrollments
 assessment_data <- Enrollments %>%
   filter(ProgramType == "Coordinated Entry") %>%
   setNames(paste("CE", colnames(Enrollments), sep = "_"))

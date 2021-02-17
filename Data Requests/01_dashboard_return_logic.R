@@ -3,15 +3,21 @@ library(lubridate)
 library(dplyr)
 library(readxl)
 
-##  new file name
-new_file_name <- readline(prompt="What should the generated file be called? ")
+# save_directory <- "C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/"
+save_directory <- "G:/CES-HMIS/"
 
 ##  PM = project management, E = equity, SP = system performance
 file_to_generate <- readline(prompt="What dashboard is this for? (PM, E, SP, YHDP) ")
 
+##  select enrollments file
+file_name <- file.choose()
+
+## extract dates from filename for naming final file
+dates_for_file <- substr(basename(file_name), str_locate(basename(file_name), " ")[1,1], nchar(basename(file_name)) - 5)
+
 ##  read in file
 Enrollments <- 
-  read_excel(file.choose())
+  read_excel(file_name)
 
 if (file_to_generate == "PM") {
   additional_program_data <- 
@@ -163,12 +169,12 @@ if (file_to_generate == "PM") {
     left_join(return_dates, by = "EnrollID")
   
   if (file_to_generate == "PM") {
-    write_excel_csv(flagged, file = paste0("C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/Dashboards/PM Dashboard/", new_file_name, ".csv"), na = "")
+    write_excel_csv(flagged, file = paste0(save_directory, "Dashboards/PM Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
   } else if (file_to_generate == "E") {
-    write_excel_csv(flagged, file = paste0("C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/Dashboards/Equity Dashboard/", new_file_name, ".csv"), na = "")
+    write_excel_csv(flagged, file = paste0(save_directory, "Dashboards/Equity Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
   } else if (file_to_generate == "YHDP") {
-    write_excel_csv(dated, file = paste0("C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/Dashboards/YHDP Dashboard/", new_file_name, ".csv"), na = "")
+    write_excel_csv(dated, file = paste0(save_directory, "Dashboards/YHDP Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
   } else {
-    write_excel_csv(flagged, file = paste0("G:/HMIS/Dashboards/System Performance Dashboard/", new_file_name, ".csv"), na = "")
+    write_excel_csv(flagged, file = paste0(save_directory, "Dashboards/System Performance Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
   }
 }

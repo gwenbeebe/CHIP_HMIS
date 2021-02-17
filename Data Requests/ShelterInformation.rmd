@@ -1,0 +1,145 @@
+---
+title: "Shelter Information"
+author: "Gwen Beebe"
+date: "2/11/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(readxl)
+library(janitor)
+
+##  read in files
+Enrollments <- 
+  read_excel(file.choose())
+Demographics <- 
+  read_excel(file.choose())
+
+```
+
+```{r data prep}
+
+shelter_data <- Enrollments %>%
+  filter(ProgramType == 'Emergency shelter',
+         is.na(ExitDate)) %>%
+  left_join(Demographics, by = "ClientID") %>%
+  group_by(CaseID) %>%
+  mutate(max_age = max(`Age at Entry`),
+         min_age = min(`Age at Entry`),
+         hh_size = n(),
+         hh_type = case_when(max_age >= 18 & min_age < 18 ~ "Family",
+                   max_age >= 18 | is.na(max_age) ~ "Adults Only",
+                   TRUE ~ "Minors Only"),
+         age_group = case_when(
+           `Age at Entry` < 5 ~ "Under 5",
+           `Age at Entry` <= 12 ~ "5-12",
+           `Age at Entry` <= 17 ~ "13-17",
+           `Age at Entry` <= 24 ~ "18-24",
+           `Age at Entry` <= 34 ~ "25-34",
+           `Age at Entry` <= 44 ~ "35-44",
+           `Age at Entry` <= 54 ~ "45-54",
+           `Age at Entry` <= 61 ~ "55-61",
+           `Age at Entry` <= 105 ~ "62+",
+           TRUE ~ "Unknown"),
+         age_group = factor(
+           age_group,
+           levels = c(
+             "Under 5", "5-12", "13-17", "18-24",
+             "25-34", "35-44", "45-54", "55-61",
+             "62+", "Unknown")),
+         Latinx = case_when(Latinx == "Yes" ~ "Latinx",
+                            Latinx == "No" ~ "Not Latinx",
+                          TRUE ~ Latinx),
+         Gender = case_when(Gender %in% c(1, 5) ~ "Female",
+                            Gender %in% c(2, 3) ~ "Male",
+                            Gender == 6 ~ "Non-Binary",
+                            TRUE ~ "Unknown")
+         ) %>%
+  ungroup() %>%
+  group_by(ClientID) %>%
+  arrange(desc(hh_size), desc(EnrollDate)) %>%
+  slice(1L) %>%
+  ungroup()
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r tables, echo=FALSE}
+
+knitr::kable(
+  shelter_data %>%
+    tabyl(ProgramName, RaceDesc, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    # adorn_percentages("all") %>%
+    # adorn_pct_formatting() %>%
+    # adorn_ns() %>%
+    adorn_title("top", "Shelter", ""),
+  caption = "Count of People in Shelters by Race"
+  )
+  
+knitr::kable(
+  shelter_data %>%
+    tabyl(ProgramName, Latinx, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    # adorn_percentages("all") %>%
+    # adorn_pct_formatting() %>%
+    # adorn_ns() %>%
+    adorn_title("top", "Shelter", ""),
+  caption = "Count of People in Shelters by Ethnicity"
+  )
+
+knitr::kable(
+  shelter_data %>%
+    tabyl(ProgramName, age_group, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    # adorn_percentages("all") %>%
+    # adorn_pct_formatting() %>%
+    # adorn_ns() %>%
+    adorn_title("top", "Shelter", ""),
+  caption = "Count of People in Shelters by Age"
+  )
+
+knitr::kable(
+  shelter_data %>%
+    tabyl(ProgramName, Gender, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    # adorn_percentages("all") %>%
+    # adorn_pct_formatting() %>%
+    # adorn_ns() %>%
+    adorn_title("top", "Shelter", ""),
+  caption = "Count of People in Shelters by Gender"
+  )
+
+knitr::kable(
+  shelter_data %>%
+    tabyl(ProgramName, hh_type, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    # adorn_percentages("all") %>%
+    # adorn_pct_formatting() %>%
+    # adorn_ns() %>%
+    adorn_title("top", "Shelter", ""),
+  caption = "Count of People in Shelters by Household Type"
+  )
+
+knitr::kable(
+  shelter_data %>%
+    tabyl(ProgramName, show_na = FALSE) %>%
+    adorn_totals("row") %>%
+    # adorn_percentages("all") %>%
+    # adorn_pct_formatting() %>%
+    # adorn_ns() %>%
+    adorn_title("top", "Shelter", ""),
+  caption = "Count of People in Shelters"
+  )
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
