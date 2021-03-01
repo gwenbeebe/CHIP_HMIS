@@ -2,6 +2,7 @@ library(tidyverse)
 library(lubridate)
 library(dplyr)
 library(readxl)
+library(xlsx)
 
 # save_directory <- "C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/"
 save_directory <- "G:/CES-HMIS/"
@@ -19,6 +20,7 @@ dates_for_file <- substr(basename(file_name), str_locate(basename(file_name), " 
 Enrollments <- 
   read_excel(file_name)
 
+##  Read in Programs data for PM dashboard
 if (file_to_generate == "PM") {
   additional_program_data <- 
     read_excel(file.choose())
@@ -26,6 +28,16 @@ if (file_to_generate == "PM") {
     left_join(additional_program_data %>%
                 select(ProgramID, ProgramName, ProgramType),
               by = "ProgramID")
+}
+
+##  Read in data quality report for system performance dashboard
+if (file_to_generate == "SP") {
+  data_quality <- 
+    read_excel(file.choose())
+  Enrollments <- Enrollments %>%
+    left_join(data_quality %>%
+                select(EnrollID, QuestionsToAnswer, QuestionsAnswered),
+              by = "EnrollID")
 }
 
 {
@@ -169,7 +181,8 @@ if (file_to_generate == "PM") {
     left_join(return_dates, by = "EnrollID")
   
   if (file_to_generate == "PM") {
-    write_excel_csv(flagged, file = paste0(save_directory, "Dashboards/PM Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
+    # write_excel_csv(flagged, file = paste0(save_directory, "Dashboards/PM Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
+    write.xlsx(flagged, file = paste0(save_directory, "Dashboards/PM Dashboard/FlaggedEnrollments", dates_for_file, ".xlsx"), showNA = FALSE)
   } else if (file_to_generate == "E") {
     write_excel_csv(flagged, file = paste0(save_directory, "Dashboards/Equity Dashboard/FlaggedEnrollments", dates_for_file, ".csv"), na = "")
   } else if (file_to_generate == "YHDP") {
