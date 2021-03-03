@@ -44,59 +44,54 @@
 				- return from housed = at least one homeless event in the last 90 days that is immediately preceded by a housed event
 				- return from inactive = identification date is in the last 90 days, but the client has at least one homeless event more than 90 days old
 				- active = all other situations
+			Switched from temporary tables to CTEs to allow for view creation
 */
 
-USE Indy
-------------------------------------------------
----------  DROP REMAINING TEMP TABLES  ---------
-------------------------------------------------
-IF OBJECT_ID('tempdb.dbo.#Veterans') IS NOT NULL DROP TABLE #Veterans;
-IF OBJECT_ID('tempdb.dbo.#TimeLimitedEnrollments') IS NOT NULL DROP TABLE #TimeLimitedEnrollments;
-IF OBJECT_ID('tempdb.dbo.#TimeLimitedServices') IS NOT NULL DROP TABLE #TimeLimitedServices;
+USE Indy;
+GO
 
-IF OBJECT_ID('tempdb.dbo.#HomelessDates') IS NOT NULL DROP TABLE #HomelessDates;
-IF OBJECT_ID('tempdb.dbo.#HousedDates') IS NOT NULL DROP TABLE #HousedDates;
-IF OBJECT_ID('tempdb.dbo.#FullStatusAndDateTable') IS NOT NULL DROP TABLE #FullStatusAndDateTable;
 
+--CREATE OR ALTER VIEW [dbo].[Custom_VW_StatusTable]
+--AS
 
 ------------------------------------------------
 ----------  CREATE BASE TEMP TABLES  -----------
 ------------------------------------------------
--- create the #Veterans table
-SELECT ClientID
-INTO #Veterans
+-- create the Veterans CTE
+WITH Veterans AS
+(SELECT ClientID
 FROM dbo.cmClient WITH (NOLOCK)
 WHERE ActiveStatus <> 'D'
-	AND VeteranStatus = 1
+	AND VeteranStatus = 1),
 
--- create the #TimeLimitedEnrollments table
-SELECT EnrollID, ClientID, CaseID, EnrollDate, EnrollAssessmentID, ExitDate, ExitDestination
-INTO #TimeLimitedEnrollments
+-- create the TimeLimitedEnrollments CTE
+TimeLimitedEnrollments AS
+(SELECT EnrollID, ClientID, CaseID, EnrollDate, EnrollAssessmentID, ExitDate, ExitDestination
 FROM dbo.Enrollment WITH (NOLOCK)
 WHERE ActiveStatus <> 'D'
 	AND EnrollDate <= SYSDATETIME()
 	AND (ExitDate IS NULL 
-		OR ExitDate >= DATEADD(year, -3, SYSDATETIME()))
+		OR ExitDate >= DATEADD(year, -3, SYSDATETIME()))),
 
--- create the #TimeLimitedServices table
-SELECT ClientID, OrgID, EnrollID, BeginDate, ServiceCodeID
-INTO #TimeLimitedServices
+-- create the TimeLimitedServices CTE
+TimeLimitedServices AS
+(SELECT ClientID, OrgID, EnrollID, BeginDate, ServiceCodeID
 FROM dbo.Service WITH (NOLOCK)
 WHERE ActiveStatus <> 'D'
 	AND BeginDate <= SYSDATETIME()
 	AND (EndDate IS NULL 
-		OR EndDate >= DATEADD(year, -3, SYSDATETIME()))
+		OR EndDate >= DATEADD(year, -3, SYSDATETIME())))
 
 
 ------------------------------------------------
------  CREATE STATUS TABLE - HOMELESSNESS  -----
+----  ADD HOMELESS EVENTS TO STATUS TABLE  -----
 ------------------------------------------------
 --	get exit dates that indicate homelessness, or the current date for clients in ES/SH/TH
-SELECT DISTINCT V.ClientID, (CASE WHEN E.ExitDate IS NULL THEN SYSDATETIME() ELSE E.ExitDate END) AS EffectiveDate, P.ProgramName,
+SELECT DISTINCT V.ClientID, CAST ((CASE WHEN E.ExitDate IS NULL THEN SYSDATETIME() ELSE E.ExitDate END) AS DATE) AS EffectiveDate, 'Homeless' AS ClientStatus, P.ProgramName,
 	(CASE WHEN E.ExitDestination IN (1, 2, 16, 18) THEN 'Homeless Exit From Program' ELSE 'Still Enrolled in Program' END) AS EventType
-INTO #HomelessDates
-FROM #Veterans V 
-INNER JOIN #TimeLimitedEnrollments E ON E.ClientID = V.ClientID
+INTO #FullStatusAndDateTable
+FROM Veterans V 
+INNER JOIN TimeLimitedEnrollments E ON E.ClientID = V.ClientID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
 WHERE E.ExitDestination IN (1, 2, 16, 18)															-- include all exits to ES, SH, TH, or unsheltered homelessness
@@ -106,9 +101,9 @@ WHERE E.ExitDestination IN (1, 2, 16, 18)															-- include all exits to 
 UNION ALL
 
 --	get enrollment dates that indicate homelessness
-SELECT DISTINCT V.ClientID, E.EnrollDate, P.ProgramName, 'Literally Homeless Enrollment' AS EventType
-FROM #Veterans V 
-INNER JOIN #TimeLimitedEnrollments E ON E.ClientID = V.ClientID
+SELECT DISTINCT V.ClientID, CAST (E.EnrollDate AS DATE), 'Homeless' AS ClientStatus, P.ProgramName, 'Literally Homeless Enrollment' AS EventType
+FROM Veterans V 
+INNER JOIN TimeLimitedEnrollments E ON E.ClientID = V.ClientID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.HMISDataAssessment A WITH (NOLOCK) ON A.AssessmentID = E.EnrollAssessmentID AND A.ActiveStatus <> 'D'
@@ -122,11 +117,11 @@ WHERE E.EnrollDate >= DATEADD(year, -3, SYSDATETIME())												-- only includ
 UNION ALL
 
 --	get service dates that indicate homelessness
-SELECT DISTINCT V.ClientID, S.BeginDate, (CASE WHEN P.ProgramName IS NULL THEN O.Organization ELSE P.ProgramName END) AS ProgramName, 'Outreach Contact Service' AS EventType
-FROM #Veterans V
-INNER JOIN #TimeLimitedServices S ON V.ClientID = S.ClientID
+SELECT DISTINCT V.ClientID, CAST (S.BeginDate AS DATE), 'Homeless' AS ClientStatus, (CASE WHEN P.ProgramName IS NULL THEN O.Organization ELSE P.ProgramName END) AS ProgramName, 'Outreach Contact Service' AS EventType
+FROM Veterans V
+INNER JOIN TimeLimitedServices S ON V.ClientID = S.ClientID
 LEFT OUTER JOIN dbo.ServiceCode SC ON S.ServiceCodeID = SC.ServiceCodeID AND SC.ActiveStatus <> 'D'
-LEFT OUTER JOIN #TimeLimitedEnrollments E ON E.EnrollID = S.EnrollID
+LEFT OUTER JOIN TimeLimitedEnrollments E ON E.EnrollID = S.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.osOrganization O WITH (NOLOCK) ON O.OrgID = S.OrgID AND O.ActiveStatus <> 'D'
@@ -135,10 +130,10 @@ WHERE SC.OutreachContact = 'true'																	-- include all services marked
 UNION ALL
 
 --	get current living situation dates that indicate homelessness
-SELECT DISTINCT V.ClientID, CLS.LivingSituationDate, P.ProgramName, 'Literally Homeless CLS' AS EventType
-FROM #Veterans V
+SELECT DISTINCT V.ClientID, CAST (CLS.LivingSituationDate AS DATE), 'Homeless' AS ClientStatus, P.ProgramName, 'Literally Homeless CLS' AS EventType
+FROM Veterans V
 INNER JOIN dbo.HMIS_LivingSituation CLS WITH (NOLOCK) ON V.ClientID = CLS.ClientID AND CLS.ActiveStatus <> 'D'
-LEFT OUTER JOIN #TimeLimitedEnrollments E WITH (NOLOCK) ON CLS.EnrollID = E.EnrollID
+LEFT OUTER JOIN TimeLimitedEnrollments E WITH (NOLOCK) ON CLS.EnrollID = E.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
 WHERE CLS.LivingSituationDate >= DATEADD(year, -3, SYSDATETIME())
@@ -146,14 +141,15 @@ WHERE CLS.LivingSituationDate >= DATEADD(year, -3, SYSDATETIME())
 
 
 ------------------------------------------------
---------  CREATE STATUS TABLE - HOUSED  --------
+------  ADD HOUSED EVENTS TO STATUS TABLE  -----
 ------------------------------------------------
+UNION ALL
+
 --	get exit dates that indicate housed status, or the current date for clients housed in RRH/PSH/OPH programs
-SELECT DISTINCT V.ClientID, (CASE WHEN E.ExitDate IS NULL THEN SYSDATETIME() ELSE E.ExitDate END) AS EffectiveDate, P.ProgramName,
+SELECT DISTINCT V.ClientID, CAST ((CASE WHEN E.ExitDate IS NULL THEN SYSDATETIME() ELSE E.ExitDate END) AS DATE) AS EffectiveDate, 'Housed' AS ClientStatus, P.ProgramName,
 	(CASE WHEN E.ExitDestination IN (3, 10, 11, 19, 20, 21, 22, 23, 26, 28, 29, 31, 32, 33, 34) THEN 'Housed Exit From Program' ELSE 'Still Housed in Program' END) AS EventType
-INTO #HousedDates
-FROM #Veterans V 
-INNER JOIN #TimeLimitedEnrollments E ON E.ClientID = V.ClientID
+FROM Veterans V 
+INNER JOIN TimeLimitedEnrollments E ON E.ClientID = V.ClientID
 LEFT OUTER JOIN dbo.EnrollmentRRH ER WITH (NOLOCK) ON ER.EnrollID = E.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
@@ -165,23 +161,23 @@ WHERE E.ExitDestination IN (3, 10, 11, 19, 20, 21, 22, 23, 26, 28, 29, 31, 32, 3
 UNION ALL
 
 --	get housing move in dates for RRH/PSH/OPH programs
-SELECT DISTINCT V.ClientID, ER.DateOfMoveIn, P.ProgramName, 'Housing Move-In Date' AS EventType
-FROM #Veterans V 
-INNER JOIN #TimeLimitedEnrollments E ON E.ClientID = V.ClientID
+SELECT DISTINCT V.ClientID, CAST(ER.DateOfMoveIn AS DATE), 'Housed' AS ClientStatus, P.ProgramName, 'Housing Move-In Date' AS EventType
+FROM Veterans V 
+INNER JOIN TimeLimitedEnrollments E ON E.ClientID = V.ClientID
 LEFT OUTER JOIN dbo.EnrollmentRRH ER WITH (NOLOCK) ON ER.EnrollID = E.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
-WHERE P.ProgramType IN (3, 9, 10, 55)																-- include all HMIDs for housing programs
-		AND ER.DateOfMoveIn IS NOT NULL		
+WHERE P.ProgramType IN (3, 9, 10, 55)																-- include all HMIDs for housing programs in the last three years
+		AND ER.DateOfMoveIn >= DATEADD(year, -3, SYSDATETIME())		
 
 UNION ALL
 
 --	get service dates for rental assistance and deposit assistance
-SELECT DISTINCT V.ClientID, S.BeginDate, (CASE WHEN P.ProgramName IS NULL THEN O.Organization ELSE P.ProgramName END) AS ProgramName, 'Rent or Deposit Service' AS EventType
-FROM #Veterans V
-INNER JOIN #TimeLimitedServices S ON V.ClientID = S.ClientID
+SELECT DISTINCT V.ClientID, CAST(S.BeginDate AS DATE), 'Housed' AS ClientStatus, (CASE WHEN P.ProgramName IS NULL THEN O.Organization ELSE P.ProgramName END) AS ProgramName, 'Rent or Deposit Service' AS EventType
+FROM Veterans V
+INNER JOIN TimeLimitedServices S ON V.ClientID = S.ClientID
 LEFT OUTER JOIN dbo.ServiceCode SC ON S.ServiceCodeID = SC.ServiceCodeID AND SC.ActiveStatus <> 'D'
-LEFT OUTER JOIN #TimeLimitedEnrollments E ON E.EnrollID = S.EnrollID
+LEFT OUTER JOIN TimeLimitedEnrollments E ON E.EnrollID = S.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.osOrganization O WITH (NOLOCK) ON O.OrgID = S.OrgID AND O.ActiveStatus <> 'D'
@@ -191,30 +187,19 @@ WHERE SC.HUDFinancialAssistanceType IN (1, 2)														-- include all servic
 UNION ALL
 
 --	get current living situation dates that indicate housed
-SELECT DISTINCT V.ClientID, CLS.LivingSituationDate, P.ProgramName, 'Housed CLS' AS EventType
-FROM #Veterans V
+SELECT DISTINCT V.ClientID, CAST(CLS.LivingSituationDate AS DATE), 'Housed' AS ClientStatus, P.ProgramName, 'Housed CLS' AS EventType
+FROM Veterans V
 INNER JOIN dbo.HMIS_LivingSituation CLS WITH (NOLOCK) ON V.ClientID = CLS.ClientID AND CLS.ActiveStatus <> 'D'
-LEFT OUTER JOIN #TimeLimitedEnrollments E WITH (NOLOCK) ON CLS.EnrollID = E.EnrollID
+LEFT OUTER JOIN TimeLimitedEnrollments E WITH (NOLOCK) ON CLS.EnrollID = E.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus <> 'D'
 WHERE CLS.LivingSituationDate >= DATEADD(year, -3, SYSDATETIME())
 	AND CLS.LivingSituation IN (3, 10, 11, 14, 19, 20, 21, 28, 29, 31, 32, 33, 34, 35, 36)			-- include all current living situations in the last three years recorded as a housed situation
 
+--GO
 
-------------------------------------------------
---------  JOIN AND LABEL STATUS TABLES  --------
-------------------------------------------------
-SELECT DISTINCT ClientID, CAST (EffectiveDate AS DATE) AS EffectiveDate, 'Homeless' AS ClientStatus, ProgramName, EventType
-INTO #FullStatusAndDateTable
-FROM #HomelessDates
-WHERE EffectiveDate >= DATEADD(year, -3, SYSDATETIME())
-UNION ALL
-SELECT DISTINCT ClientID, CAST (EffectiveDate AS DATE) AS EffectiveDate, 'Housed' AS ClientStatus, ProgramName, EventType
-FROM #HousedDates
-WHERE EffectiveDate >= DATEADD(year, -3, SYSDATETIME())
-ORDER BY ClientID, EffectiveDate DESC, ClientStatus DESC
-
-
+--CREATE OR ALTER VIEW [dbo].[Custom_VW_ByNameList]
+--AS
 ------------------------------------------------
 ------------  CREATE SUMMARY TABLE  ------------
 ------------------------------------------------
@@ -270,14 +255,4 @@ LEFT OUTER JOIN
 	GROUP BY ClientID) R ON R.ClientID = C.ClientID
 GROUP BY C.ClientID, Recent.RecentStatus, IdDATE.IdentificationDate, R.ReturnFlag
 
-
-------------------------------------------------
---------------  DROP TEMP TABLES  --------------
-------------------------------------------------
-IF OBJECT_ID('tempdb.dbo.#Veterans') IS NOT NULL DROP TABLE #Veterans;
-IF OBJECT_ID('tempdb.dbo.#TimeLimitedEnrollments') IS NOT NULL DROP TABLE #TimeLimitedEnrollments;
-IF OBJECT_ID('tempdb.dbo.#TimeLimitedServices') IS NOT NULL DROP TABLE #TimeLimitedServices;
-
-IF OBJECT_ID('tempdb.dbo.#HomelessDates') IS NOT NULL DROP TABLE #HomelessDates;
-IF OBJECT_ID('tempdb.dbo.#HousedDates') IS NOT NULL DROP TABLE #HousedDates;
-IF OBJECT_ID('tempdb.dbo.#FullStatusAndDateTable') IS NOT NULL DROP TABLE #FullStatusAndDateTable;
+--GO
