@@ -17,11 +17,16 @@ file_name <- file.choose()
 dates_for_file <- substr(basename(file_name), str_locate(basename(file_name), " ")[1,1], nchar(basename(file_name)) - 5)
 
 ##  read in file
-Enrollments <- 
-  read_excel(file_name, col_types = case_when(file_to_generate != "PM" ~
-                                                c("numeric", "numeric", "numeric", "text", "text", "text", "text", 
-                                                  "text", "text", "date", "date", "date", "date", "text", "numeric", 
-                                                  "numeric", "text", "date", "text", "text")))
+if (file_to_generate == "PM") {
+  Enrollments <- 
+    read_excel(file_name, col_types = c("numeric", "numeric", "numeric", "text", "text", "text", "text", 
+                                                    "text", "text", "date", "date", "date", "date", "text", "numeric", 
+                                                    "numeric", "text", "date", "text", "text"))
+  } else {
+  Enrollments <- 
+    read_excel(file_name)
+}
+
 
 ##  Read in Programs data for PM dashboard
 if (file_to_generate == "PM") {
@@ -64,7 +69,8 @@ if (file_to_generate == "SP") {
                                                      !is.na(ExitDate) ~ ymd(ExitDate),
                                                      TRUE ~ ymd(lookback_end_date))))%>%
     filter(homeless_end_date > lookback_start_date & homeless_start_without_3.917 < homeless_end_date) %>%
-    select(EnrollID, ClientID, ProgramType, homeless_start_without_3.917, homeless_start_with_3.917, homeless_end_date)
+    # select(EnrollID, ClientID, ProgramType, homeless_start_without_3.917, homeless_start_with_3.917, homeless_end_date)
+    select(EnrollID, ClientID, ProgramType, homeless_start_without_3.917, homeless_start_with_3.917, homeless_end_date, `Age at Entry`)
   
   housed <- Enrollments %>%
     filter(ProgramType %in% c("Transitional housing", "PH - Permanent Supportive Housing (disability required for entry)",

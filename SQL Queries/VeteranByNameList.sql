@@ -19,6 +19,7 @@
 				- exits to ES/SH/TH or literal homelessness or impute today's date for current shelter stayers
 				- services coded as street outreach contacts
 				- current living situations recorded as ES/SH/TH or literal homelessness
+
 3.1.21 -	Created first draft of housed date table, including:
 				- exits to housed situations or impute today's date for folks currently in a housing program with a HMID
 				- housing move-in dates
@@ -34,6 +35,7 @@
 				- active = ?
 				- return from inactive = ?
 			First draft of logic for getting days since last event
+
 3.2.21 -	Updated all 'three month' logic to use '90 days' instead
 			Added identification date to summary table
 				- identification date = most recent homeless event date with no homeless events in the 90 days preceding it
@@ -51,8 +53,8 @@ USE Indy;
 GO
 
 
---CREATE OR ALTER VIEW [dbo].[Custom_VW_StatusTable]
---AS
+CREATE OR ALTER VIEW [dbo].[Custom_VW_StatusTable]
+AS
 
 ------------------------------------------------
 ----------  CREATE BASE TEMP TABLES  -----------
@@ -89,7 +91,7 @@ WHERE ActiveStatus <> 'D'
 --	get exit dates that indicate homelessness, or the current date for clients in ES/SH/TH
 SELECT DISTINCT V.ClientID, CAST ((CASE WHEN E.ExitDate IS NULL THEN SYSDATETIME() ELSE E.ExitDate END) AS DATE) AS EffectiveDate, 'Homeless' AS ClientStatus, P.ProgramName,
 	(CASE WHEN E.ExitDestination IN (1, 2, 16, 18) THEN 'Homeless Exit From Program' ELSE 'Still Enrolled in Program' END) AS EventType
-INTO #FullStatusAndDateTable
+-- INTO #FullStatusAndDateTable
 FROM Veterans V 
 INNER JOIN TimeLimitedEnrollments E ON E.ClientID = V.ClientID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus <> 'D'
@@ -196,10 +198,10 @@ LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P
 WHERE CLS.LivingSituationDate >= DATEADD(year, -3, SYSDATETIME())
 	AND CLS.LivingSituation IN (3, 10, 11, 14, 19, 20, 21, 28, 29, 31, 32, 33, 34, 35, 36)			-- include all current living situations in the last three years recorded as a housed situation
 
---GO
+GO
 
---CREATE OR ALTER VIEW [dbo].[Custom_VW_ByNameList]
---AS
+CREATE OR ALTER VIEW [dbo].[Custom_VW_ByNameList]
+AS
 ------------------------------------------------
 ------------  CREATE SUMMARY TABLE  ------------
 ------------------------------------------------
@@ -218,25 +220,26 @@ SELECT C.ClientID, IdDATE.IdentificationDate,
 			AND COUNT(CASE WHEN C.EffectiveDate < DATEADD(day, -90, SYSDATETIME()) AND C.ClientStatus = 'Homeless' THEN C.EffectiveDate END) > 0
 			THEN 'Return From Inactive'															-- return from housed = no homeless events in the last 90 days preceded by a homeless event in 90 days, but not newly homeless
 		ELSE 'Active' END) AS CurrentStatus														-- else active
-FROM #FullStatusAndDateTable C
+-- FROM #FullStatusAndDateTable C
+FROM [dbo].[Custom_VW_StatusTable] C
 -- this join gets the most recent status for each client
 LEFT OUTER JOIN (SELECT ClientID, ClientStatus AS RecentStatus									
     FROM (SELECT ClientID, ClientStatus, RANK() 
 			OVER (PARTITION BY ClientID
                 ORDER BY ClientID, EffectiveDate DESC, ClientStatus DESC) AS Rank
-        FROM #FullStatusAndDateTable) RS 
+        FROM [dbo].[Custom_VW_StatusTable]) RS 
 	WHERE Rank = 1) Recent ON C.ClientID = Recent.ClientID
 -- this join gets the maximum potential ID date (the start date associated with the most recent period of homelessness)
 LEFT OUTER JOIN
 	(SELECT ClientID, MAX(EffectiveDate) AS IdentificationDate									
 	FROM (SELECT  ClientID, EffectiveDate, ClientStatus, ProgramName, EventType,
 			(SELECT MAX(EffectiveDate)
-			FROM #FullStatusAndDateTable T2
+			FROM [dbo].[Custom_VW_StatusTable] T2
 			WHERE T2.ClientID = T1.ClientID
 				AND T2.EffectiveDate < T1.EffectiveDate
 				AND T2.ClientStatus = 'Homeless'
 			) AS PrevHomelessDate
-		FROM #FullStatusAndDateTable T1
+		FROM [dbo].[Custom_VW_StatusTable] T1
 		WHERE T1.ClientStatus = 'Homeless') AS T
 	WHERE DATEDIFF(DAY, PrevHomelessDate, EffectiveDate) >= 90 OR PrevHomelessDate IS NULL		-- potential dates are homeless dates occuring at least 90 days after the preceding homeless date or with none preceding
 	GROUP BY ClientID) IdDate ON IdDATE.ClientID = C.ClientID
@@ -245,14 +248,14 @@ LEFT OUTER JOIN
 	(SELECT ClientID, MAX(CASE WHEN PrevStatus = 'Housed' THEN 1 else 0 END) AS ReturnFlag		-- if any of the qualifying events were preceded by a housed event, create a flag on that client
 	FROM (SELECT ClientID,
 		(SELECT TOP 1 ClientStatus
-		FROM #FullStatusAndDateTable T3
+		FROM [dbo].[Custom_VW_StatusTable] T3
 		WHERE T3.ClientID = T1.ClientID
 			AND T3.EffectiveDate < T1.EffectiveDate
 		ORDER BY EffectiveDate DESC, ClientStatus DESC) AS PrevStatus
-	FROM #FullStatusAndDateTable T1
+	FROM [dbo].[Custom_VW_StatusTable] T1
 	WHERE T1.ClientStatus = 'Homeless'															-- for the return to housed check, we only need to look before homeless events in the last 90 days
 		AND T1.EffectiveDate >= DATEADD(day, -90, SYSDATETIME())) Returns
 	GROUP BY ClientID) R ON R.ClientID = C.ClientID
 GROUP BY C.ClientID, Recent.RecentStatus, IdDATE.IdentificationDate, R.ReturnFlag
 
---GO
+GO

@@ -1,19 +1,19 @@
 /****** Object:  View [dbo].[Custom_VW_PrioritizationList]    Script Date: 12/18/2019 12:32:34 AM ******/
---SET ANSI_NULLS ON
---GO
+SET ANSI_NULLS ON
+GO
 
---SET QUOTED_IDENTIFIER ON
---GO
-
-
+SET QUOTED_IDENTIFIER ON
+GO
 
 
 
 
 
 
---ALTER VIEW [dbo].[Custom_VW_PrioritizationList]
---AS
+
+
+ALTER VIEW [dbo].[Custom_VW_PrioritizationList]
+AS
 /*-----------------------------------------------------------------------------------------------------------------------------
 
 *** CHIP ***
@@ -54,6 +54,7 @@ T.S. - 11/25/2020 - Change join of HMIS_LivingSituation table to use ClientID in
 	Change join type from left join to left outer join on living situation join
 	Change casemembers subquery per Chip
 GB	2.24.21 - added yes/no column to flag whether the client has an open housing referral
+GB	3.11.21	- updated days homeless calculation to use DV date if the standard homeless date is missing or after the DV date
 
 NOTE: The custom view dbo.CUSTOM_vw_LastReferral, and the custom table dbo.CT_CEAssessment, MUST exist in the database.
 --------------------------------------------------------------------------------------------------------------------------------*/
@@ -63,8 +64,10 @@ SELECT
 	C.Name,	C.FirstName, C.LastName, C.Gender, C.VeteranStatus, 
 	P.[ProgramName], E.[EnrollDate], E.[ExitDate], 
 	V.[ScoreTotal] AS [VISPDATScore], 
-	A.[HomelessStartDate] AS [HomelessStartDate], DATEDIFF(Day,A.[HomelessStartDate], GETDATE()) AS [DaysHomeless],
-
+	A.[HomelessStartDate] AS [HomelessStartDate], DATEDIFF(Day, 
+		CASE WHEN A.[HomelessStartDate] IS NULL OR CEA.DVHomelessDate < A.[HomelessStartDate]
+			THEN CEA.DVHomelessDate ELSE A.[HomelessStartDate] END
+		, GETDATE()) AS [DaysHomeless],
 	CASE	WHEN DATEDIFF(YY,A.[HomelessStartDate], GETDATE()) >= 5 THEN '5 or more Years'
 			WHEN DATEDIFF(YY,A.[HomelessStartDate], GETDATE()) BETWEEN 3 AND 4 THEN '3-4 Years'
 			WHEN DATEDIFF(Day,A.[HomelessStartDate], GETDATE()) > 365 THEN '1-2 Years'
@@ -259,6 +262,6 @@ WHERE
 	AND ( C.[ActiveStatus] <> 'D' )
 	AND ( P.[ProgramType] = 14 );
 	
---GO
+GO
 
 
