@@ -55,6 +55,7 @@ T.S. - 11/25/2020 - Change join of HMIS_LivingSituation table to use ClientID in
 	Change casemembers subquery per Chip
 GB	2.24.21 - added yes/no column to flag whether the client has an open housing referral
 GB	3.11.21	- updated days homeless calculation to use DV date if the standard homeless date is missing or after the DV date
+GB	3.22.21 - added 'CES - TH-RRH Referral' to the list of referral types to check
 
 NOTE: The custom view dbo.CUSTOM_vw_LastReferral, and the custom table dbo.CT_CEAssessment, MUST exist in the database.
 --------------------------------------------------------------------------------------------------------------------------------*/
@@ -249,7 +250,7 @@ FROM
 		INNER JOIN [dbo].[ServiceCode] SC WITH (NOLOCK) ON SR.ServiceCodeID=SC.ServiceCodeID AND SC.ActiveStatus <> 'D' AND SC.Service <> 'CES - Navigation Referral'
 		WHERE S.ActiveStatus <> 'D' 
 		AND E.EnrollID = S.EnrollID
-		AND (SC.Service IN ('CES - CHIP Referral','CES - OPH Referral','CES - PSH Referral','CES - RRH Referral','CES - TH Referral','CES - SSO Referral')
+		AND (SC.Service IN ('CES - CHIP Referral','CES - OPH Referral','CES - PSH Referral','CES - RRH Referral','CES - TH Referral','CES - SSO Referral','CES - TH-RRH Referral')
 			OR SC.Service LIKE '%SSVF Self-Match%'
 			OR P.ProviderName LIKE '%SSVF%'
 			OR P.ProviderName = 'InteCare - CES')
