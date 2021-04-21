@@ -50,9 +50,10 @@ enrollment_holding <- data.frame(ProgramName=character(),
                                  hh_count=integer())
 
 inventory_holding <- data.frame(ProgramName=character(), 
-                                  month=as.Date(character()),
-                                  bed_count=integer(), 
-                                  unit_count=integer()) 
+                                month=as.Date(character()),
+                                bed_count=integer(), 
+                                unit_count=integer(),
+                                month_length = integer()) 
 
 
 
@@ -108,7 +109,8 @@ for (each_month in as.list(unique(all_dates$inventory_month))) {
            unit_count = sum(unit_count)) %>%
     ungroup() %>%
     select(ProgramName, inventory_month, bed_count, unit_count) %>%
-    distinct()
+    distinct() %>%
+    mutate(month_length = as.duration(each_month %--% month_end) / ddays(1) + 1)
   
   inventory_holding <- rbind(inventory_holding, active_inventories)
   

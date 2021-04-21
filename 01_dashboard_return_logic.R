@@ -4,8 +4,7 @@ library(dplyr)
 library(readxl)
 # library(xlsx)
 
-# save_directory <- "C:/Users/GwenBeebe/CHIP/CES HMIS Team - Documents/"
-save_directory <- "G:/CES-HMIS/"
+save_directory <- "C:/Users/GwenBeebe/CHIP/File Share - CHIP File Share/CHIP Shared Files/CES-HMIS/"
 
 ##  PM = project management, E = equity, SP = system performance
 file_to_generate <- readline(prompt="What dashboard is this for? (PM, E, SP, YHDP) ")
@@ -19,12 +18,14 @@ dates_for_file <- substr(basename(file_name), str_locate(basename(file_name), " 
 ##  read in file
 if (file_to_generate == "PM") {
   Enrollments <- 
-    read_excel(file_name, col_types = c("numeric", "numeric", "numeric", "text", "text", "text", "text", 
-                                                    "text", "text", "date", "date", "date", "date", "text", "numeric", 
-                                                    "numeric", "text", "date", "text", "text"))
+    read_excel(file_name, col_types = c("numeric", "numeric", "numeric", "text", "text", "text", "numeric", "text", 
+                                        "date", "date", "date", "date", "text", "numeric", "numeric", "numeric", "text",
+                                        "text", "date"))
   } else {
   Enrollments <- 
-    read_excel(file_name)
+    read_excel(file_name, col_types = c("numeric", "numeric", "numeric", "text", "text", "text", "text", "text", 
+                                        "text", "date", "date", "date", "date", "text", "numeric", "numeric", "text", 
+                                        "date", "text", "text", "date", "numeric"))
 }
 
 
@@ -173,9 +174,9 @@ if (file_to_generate == "SP") {
     
     df_for_returns <- Enrollments %>%
       mutate(ProgramType = 
-               if_else(ProgramName == "Diversion" 
-                       | ProgramName == "IHN - Diversion"
-                       | ProgramName == "YHDP - Diversion",
+               if_else(ProgramName == "HIP - Diversion - SSO - CoC" 
+                       | ProgramName == "IHN - Diversion - SSO"
+                       | ProgramName == "OUT - Diversion - SSO - YHDP",
                        "Diversion", ProgramType)
       )
     
