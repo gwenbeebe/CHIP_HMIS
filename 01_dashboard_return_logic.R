@@ -2,7 +2,7 @@ library(tidyverse)
 library(lubridate)
 library(dplyr)
 library(readxl)
-# library(xlsx)
+library(xlsx)
 
 save_directory <- "C:/Users/GwenBeebe/CHIP/File Share - CHIP File Share/CHIP Shared Files/CES-HMIS/"
 

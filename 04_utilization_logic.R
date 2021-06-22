@@ -12,9 +12,14 @@ dates_for_file <- substr(basename(file_name), str_locate(basename(file_name), " 
 ##  get data from excel files
 Enrollments <- read_excel(file_name)
 
-Inventory <- read_excel(file.choose()) 
+Inventory <- file.choose()
+Inventory <- read_excel(Inventory) 
 
-
+# for PM dashboard
+Enrollments <- Enrollments %>%
+  left_join(Inventory %>%
+              select(`Program ID`, `ProgramName`),
+            by = c("ProgramID" = "Program ID"))
 
 ##  create full list of possible dates, including a column that has the first day of each month
 all_dates <- as.data.frame(seq(min(Enrollments$ExitDate, na.rm = TRUE), max(Enrollments$EnrollDate), by="days")) %>%
@@ -91,7 +96,7 @@ for (each_month in as.list(unique(all_dates$inventory_month))) {
   
   ##  create table with all inventory counts for each month in the date list created above
   active_inventories <- utilization_inventory %>%
-    filter(`Start Date` <= month_end &
+    filter(`Start Date` <= month_end &  
              `End Date` > each_month)%>%
     inner_join(days, by = "join") %>%
     filter(`Start Date` <= possible_day &
