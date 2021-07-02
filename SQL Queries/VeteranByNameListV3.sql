@@ -51,6 +51,7 @@
 				- changed housed check and ID date joins to use lag
 4.20.21	-	Continued optimization, got run time down to 3 seconds when run locally
 5.27.21 -	Combined select statements for services, CLSs, and exits per Greg's suggestion
+7.2.21	-	Reduced lookback to two years instead of three to increase speed, cleared with Matt H
 */
 
 USE Indy;
@@ -77,7 +78,7 @@ FROM dbo.Enrollment WITH (NOLOCK)
 WHERE ActiveStatus = 'A'
 	AND EnrollDate <= SYSDATETIME()
 	AND (ExitDate IS NULL 
-		OR ExitDate >= DATEADD(year, -3, SYSDATETIME()))),
+		OR ExitDate >= DATEADD(year, -2, SYSDATETIME()))),
 
 -- create the TimeLimitedServices CTE
 TimeLimitedServices AS
@@ -86,7 +87,7 @@ FROM dbo.Service WITH (NOLOCK)
 WHERE ActiveStatus = 'A'
 	AND BeginDate <= SYSDATETIME()
 	AND (EndDate IS NULL 
-		OR EndDate >= DATEADD(year, -3, SYSDATETIME())))
+		OR EndDate >= DATEADD(year, -2, SYSDATETIME())))
 
 
 ------------------------------------------------
@@ -101,7 +102,7 @@ LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND 
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus = 'A'
 LEFT OUTER JOIN dbo.HMISDataAssessment A WITH (NOLOCK) ON A.AssessmentID = E.EnrollAssessmentID AND A.ActiveStatus = 'A'
 LEFT OUTER JOIN dbo.DomesticViolenceAssessment DV WITH (NOLOCK) ON DV.AssessmentID = E.EnrollAssessmentID AND DV.ActiveStatus = 'A'
-WHERE E.EnrollDate >= DATEADD(year, -3, SYSDATETIME())												-- only include enrollments in the last three years
+WHERE E.EnrollDate >= DATEADD(year, -2, SYSDATETIME())												-- only include enrollments in the last two years
 	AND (A.PriorResidence IN (1, 2, 16, 18)															-- include all enrollments with a prior residence of ES, SH, TH, or unsheltered homelessness
 		OR (DV.DomViolenceExp = 1																	-- include all enrollments with DV history and currently fleeing
 			AND DV.CurrentlyFleeing = 1)		
@@ -120,8 +121,8 @@ INNER JOIN TimeLimitedEnrollments E ON E.ClientID = V.ClientID
 LEFT OUTER JOIN dbo.EnrollmentRRH ER WITH (NOLOCK) ON ER.EnrollID = E.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus = 'A'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus = 'A'
-WHERE P.ProgramType IN (3, 9, 10, 55)																-- include all HMIDs for housing programs in the last three years
-		AND ER.DateOfMoveIn >= DATEADD(year, -3, SYSDATETIME())		
+WHERE P.ProgramType IN (3, 9, 10, 55)																-- include all HMIDs for housing programs in the last two years
+		AND ER.DateOfMoveIn >= DATEADD(year, -2, SYSDATETIME())		
 
 ------------------------------------------------
 -----  ADD SERVICE EVENTS TO STATUS TABLE  -----
@@ -160,9 +161,9 @@ INNER JOIN dbo.HMIS_LivingSituation CLS WITH (NOLOCK) ON V.ClientID = CLS.Client
 LEFT OUTER JOIN TimeLimitedEnrollments E WITH (NOLOCK) ON CLS.EnrollID = E.EnrollID
 LEFT OUTER JOIN dbo.EnrollmentCase EC WITH (NOLOCK) ON E.CaseID = EC.CaseID AND EC.ActiveStatus = 'A'
 LEFT OUTER JOIN dbo.Programs P WITH (NOLOCK) ON EC.ProgramID = P.ProgramID AND P.ActiveStatus = 'A'
-WHERE CLS.LivingSituationDate >= DATEADD(year, -3, SYSDATETIME())
-	AND CLS.LivingSituation IN (3, 10, 11, 14, 19, 20, 21, 28, 29, 31, 32, 33, 34, 35, 36,			-- include all current living situations in the last three years recorded as a housed situation
-		1, 2, 16, 18)																				-- include all current living situations in the last three years recorded as ES, SH, TH, or unsheltered homelessness
+WHERE CLS.LivingSituationDate >= DATEADD(year, -2, SYSDATETIME())
+	AND CLS.LivingSituation IN (3, 10, 11, 14, 19, 20, 21, 28, 29, 31, 32, 33, 34, 35, 36,			-- include all current living situations in the last two years recorded as a housed situation
+		1, 2, 16, 18)																				-- include all current living situations in the last two years recorded as ES, SH, TH, or unsheltered homelessness
 
 ------------------------------------------------
 ----  ADD EXITS/RESIDENCES TO STATUS TABLE  ----
