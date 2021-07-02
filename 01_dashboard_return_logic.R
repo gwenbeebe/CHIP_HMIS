@@ -31,8 +31,9 @@ if (file_to_generate == "PM") {
 
 ##  Read in Programs data for PM dashboard
 if (file_to_generate == "PM") {
+  additional_program_data <- file.choose()
   additional_program_data <- 
-    read_excel(file.choose())
+    read_excel(additional_program_data)
   Enrollments <- Enrollments %>%
     left_join(additional_program_data %>%
                 select(ProgramID, ProgramName, ProgramType),
