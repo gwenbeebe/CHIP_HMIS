@@ -266,3 +266,122 @@ WHERE
 GO
 
 
+	AND EnrollmentRRH.DateOfMoveIn >= DATEADD(MONTH, -4, GETDATE())
+	
+	
+	
+	
+DATEDIFF(DAY, 
+	EnrollDate, 
+	CASE  			
+		WHEN custom_performance_enrollment_detail.ExitDate IS NULL  				
+			OR custom_performance_enrollment_detail.ExitDate > @EndDateInput@ 
+		THEN @EndDateInput@ 			
+		ELSE custom_performance_enrollment_detail.ExitDate 
+	END)
+	
+	
+	
+	filter for agency
+	column for case manager
+	
+
+
+Demographics
+
+
+General Information
+
+
+DOmestic Violence
+
+
+Income/Benefits
+
+
+
+custom_data_completeness.DisablingConditionCompleteness
+custom_data_completeness.DisablingConditionPresent
+custom_data_completeness.PriorLivingSituationCompleteness
+custom_data_completeness.PriorLivingSituationHistory
+custom_data_completeness.ClientLocationCompleteness
+custom_data_completeness.DVCompleteness
+custom_data_completeness.IncomeCompleteness
+custom_data_completeness.IncomeAmountPresent
+custom_data_completeness.BenefitCompleteness
+custom_data_completeness.BenefitTypePresent
+custom_data_completeness.HealthInsurancePresent
+custom_data_completeness.HealthInsuranceCompleteness
+
+
+
+
+
+(SELECT TOP 1 FA.FinancialID FROM FinancialAssessment FA (NOLOCK) WHERE FA.ActiveStatus <> 'D' 	AND FA.ClientID = Enrollment.ClientID  ORDER BY FA.AssessmentDate DESC)
+
+SELECT P.ProgramType
+FROM Programs P 
+WHERE P.ProgramID = Enrollment_Open.ProgramID
+
+(SELECT MAX(P.ProgramName)
+FROM Programs P 
+WHERE P.ProgramID = Enrollment_Open.ProgramID)
+
+<details>
+	<summary style="font-size:150%;">Show More Information</summary>
+	<details>
+		<summary>Show More Information</summary>
+		<p>Information on how to use this page goes here. You can add instructions and general information in this section.</p>
+	</details>
+</details>
+
+<details>
+	<summary style="font-size:150%;">Column Information</summary>
+
+	<details>
+		<summary>Name, SSN, Birth Date, Veteran Status, Gender, Race, Ethnicity</summary>
+		<p>This refers specifically to the information documented when initially creating the client (it may also be changed by clicking on "Edit Client" when on their record). An error will flag when the field or the ____Data Quality field are left blank, or the ____ Data Quality field is left as "Client Refused", "Client Does Not Know", or "Data Not Collected" </p>
+	</details>
+
+	<details>
+		<summary>Disabling Condition, Income, Benefits, Health Insurance</summary>
+		<p>This refers to the yes/no questions on these topics seen when first enrolling the client. An error will appear if these fields are left blank, or there is a selection of "Client Refused", "Client Doesn't Know", or "Data Not Collected"</p>
+	</details>
+	
+	<details>
+		<summary>Disabling Condition Type, Income Amount, Benefit Type, Health Insurance Type</summary>
+		<p>When you indicate "Yes" for these yes/no questions, there must also be at least one appropriate selection made in the corresponding table.</p>
+	</details>
+	
+	<details>
+		<summary>Prior Living Situation</summary>
+		<p>An error appears if this field is left blank or as "Client Refused", "Client Doesn't Know", or "Data Not Collected"</p>
+	</details>
+	
+	<details>
+		<summary>Living Situation History</summary>
+		<p>An error will appear if the appropriate questions accompanying the prior living situation are not completed.</p>
+	</details>
+	
+	<details>
+		<summary>Client Location</summary>
+		<p>This refers to a missing Client Location. The client location is almost always "IN-503", only a few programs will have a different option to select. This field must NOT be blank, and can be found when initially enrolling a client.</p>
+	</details>
+	
+	<details>
+		<summary>Domesitc Violence</summary>
+		<p>An error will appear if there is no domestic violence information recorded for a client, or if it is recorded that they are a survivor but the information on whether they are fleeing and how long ago the experience was is missing.</p>
+	</details>
+
+</details>
+
+
+
+
+
+
+'<span style="font-family:Wingdings; font-size:150%">' +
+(CASE WHEN Paystub.DocumentTypeCodeID IS NOT NULL
+	THEN '<font color="green">&#252;</font>'
+ELSE '<font color="red">&#251;</font>' END)
++ '</span>'
