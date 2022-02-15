@@ -20,7 +20,7 @@ if (file_to_generate == "PM") {
   Enrollments <- 
     read_excel(file_name, col_types = c("numeric", "numeric", "numeric", "text", "text", "text", "numeric", "text", 
                                         "date", "date", "date", "date", "text", "numeric", "numeric", "numeric", "text",
-                                        "text", "date"))
+                                        "text", "date", "text"))
   } else {
   Enrollments <- 
     read_excel(file_name, col_types = c("numeric", "numeric", "numeric", "text", "text", "text", "text", "text", "text", 
