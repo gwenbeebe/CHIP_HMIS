@@ -172,22 +172,27 @@ if (file_to_generate == "SP") {
   
   ##  Update to include diversion
   include_diversion = TRUE
+  #   # commented to stop including diversion as a return
+  # if (include_diversion) {
+  #   df_for_returns <- Enrollments %>%
+  #     mutate(ProgramType =
+  #              if_else(ProgramName == "HIP - Diversion - SSO - CoC"
+  #                      | ProgramName == "IHN - Diversion - SSO"
+  #                      | ProgramName == "OUT - Diversion - SSO - YHDP",
+  #                      "Diversion", ProgramType))
+  #   # return_program_types <- append(return_program_types, "Diversion")
+  # }
+  
   if (include_diversion) {
-    
-    df_for_returns <- Enrollments %>%
-      mutate(ProgramType = 
-               if_else(ProgramName == "HIP - Diversion - SSO - CoC" 
-                       | ProgramName == "IHN - Diversion - SSO"
-                       | ProgramName == "OUT - Diversion - SSO - YHDP",
-                       "Diversion", ProgramType)
-      )
-    
-    return_program_types <- append(return_program_types, "Diversion")
-    
+    Enrollments <- Enrollments %>%
+      mutate(ProgramType =
+               if_else(grepl("Diversion", ProgramName, fixed = TRUE),
+                       "Diversion", ProgramType))
+    df_for_returns <- Enrollments
   }
   
   df_for_returns <- df_for_returns %>%
-    filter(ProgramType %in% return_program_types) %>%
+    filter(ProgramType %in% return_program_types | ProgramType == "Diversion") %>%
     select(ClientID, EnrollID, EnrollDate, ExitDate, ProgramType, ExitDestination) %>%
     mutate(two_weeks_after_exit = if_else(!is.na(ExitDate), ExitDate + ddays(14), NULL))
   
@@ -213,6 +218,7 @@ if (file_to_generate == "SP") {
   
   ##  remove enrollments identified above from enrollments used to flag returns
   returning_entries <- df_for_returns %>%
+    filter(ProgramType != "Diversion") %>%    # don't count diversion enrollments as returns
     anti_join(excluded_PH_entries, by = c("EnrollID" = "PH_En_EnrollID")) %>%
     setNames(paste("R_En", colnames(df_for_returns), sep = "_"))
   
