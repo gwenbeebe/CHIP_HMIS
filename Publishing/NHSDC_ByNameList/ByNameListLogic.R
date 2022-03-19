@@ -2,8 +2,8 @@ library(tidyverse)
 library(lubridate)
 library(readxl)
 
-hud_service_data <- read_excel(paste0(getwd(), "\\Publishing\\SupplementalData.xlsx"), sheet = "Services") %>%
-  left_join(read_excel(paste0(getwd(), "\\Publishing\\SupplementalData.xlsx"), sheet = "ServiceGroups"), 
+hud_service_data <- read_excel(paste0(getwd(), "\\Publishing\\NHSDC_ByNameList\\SupplementalData.xlsx"), sheet = "Services") %>%
+  left_join(read_excel(paste0(getwd(), "\\Publishing\\NHSDC_ByNameList\\SupplementalData.xlsx"), sheet = "ServiceGroups"), 
             by = "RecordType") %>%
   dplyr::mutate(ServiceType = case_when(
     str_detect(Description, fixed("outreach", ignore_case=TRUE)) |
