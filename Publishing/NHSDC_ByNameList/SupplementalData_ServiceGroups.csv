@@ -1,0 +1,9 @@
+RecordType,ServiceGroup,DataElement
+141,PATH service,P1
+142,RHY service connection,R14
+143,HOPWA service,W1
+144,SSVF service,V2
+151,HOPWA financial assistance,W2
+152,SSVF financial assistance,V3
+161,PATH referral,P2
+200,Bed night,4.14

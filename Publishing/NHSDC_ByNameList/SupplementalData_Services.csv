@@ -1,0 +1,80 @@
+RecordType,TypeProvided,Description
+141,1,Re-engagement
+141,2,Screening
+141,3,Habilitation/rehabilitation
+141,4,Community mental health
+141,5,Substance use treatment
+141,6,Case management
+141,7,Residential supportive services
+141,8,Housing minor renovation
+141,9,Housing moving assistance
+141,10,Housing eligibility determination
+141,11,Security deposits
+141,12,One-time rent for eviction prevention
+141,14,Clinical assessment
+161,1,Community mental health
+161,2,Substance use treatment
+161,3,Primary health/dental care
+161,4,Job training
+161,5,Educational services
+161,6,Housing services
+161,7,Permanent housing
+161,8,Income assistance
+161,9,Employment assistance
+161,10,Medical insurance
+161,11,Temporary housing
+142,2,Community service/service learning (CSL)
+142,5,Education
+142,6,Employment and/or training services
+142,7,Criminal justice /legal services
+142,8,Life skills training
+142,10,Parenting education for youth with children
+142,12,Post-natal care for mother
+142,13,Pre-natal care
+142,14,Health/medical care
+142,17,Substance use disorder treatment
+142,18,Substance use disorder Ed/Prevention Services
+142,26,Home-based Services
+142,27,Post-natal newborn care (wellness exams; immunizations)
+142,28,STD Testing
+142,29,Street-based Services
+143,1,Adult day care and personal assistance
+143,2,Case management
+143,3,Child care
+143,4,Criminal justice/legal services
+143,5,Education
+143,6,Employment and training services
+143,7,Food/meals/nutritional services
+143,8,Health/medical care
+143,9,Life skills training
+143,10,Mental health care/counseling
+143,11,Outreach and/or engagement
+143,12,Substance use disorder services/treatment
+143,13,Transportation
+143,14,Other HOPWA funded service
+151,1,Rental assistance
+151,2,Security deposits
+151,3,Utility deposits
+151,4,Utility payments
+151,7,Mortgage assistance
+144,1,Outreach services
+144,2,Case management services
+144,3,Assistance obtaining VA benefits
+144,4,Assistance obtaining/coordinating other public benefits
+144,5,Direct provision of other public benefits
+144,6,Other (non-TFA) supportive service approved by VA
+144,7,Extended Shallow Subsidy
+144,8,Returning Home
+144,9,Rapid Resolution
+152,1,Rental assistance
+152,2,Security deposit
+152,3,Utility deposit
+152,4,Utility fee payment assistance
+152,5,Moving costs
+152,8,Transportation services: tokens/vouchers
+152,9,Transportation services: vehicle repair/maintenance
+152,10,Child care
+152,12,General housing stability assistance - other
+152,14,Emergency housing assistance
+152,15,Extended Shallow Subsidy – Rental Assistance
+200,200,Bed night
