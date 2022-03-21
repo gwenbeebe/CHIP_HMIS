@@ -312,6 +312,17 @@ server <- function(input, output, session) {
     )
   })
   
+  ###
+  output$VBNL_active_text <- renderText({
+    paste(
+      if(is.null(input$file)){"---"}
+      else{
+        nrow(vet_statuses() %>%
+               filter(CurrentStatus == "Active"))},
+      "Veterans")
+  })
+  ###
+  
   output$VBNL_newly <- renderValueBox({
     valueBox(paste(
       if(is.null(input$file)){"---"}
@@ -352,6 +363,7 @@ server <- function(input, output, session) {
   ##############################
   
   output$veteran_by_name_list <- renderDataTable({
+    if(is.null(input$file)){return ()}
     DT::datatable(
       vet_statuses(),
       options = list(

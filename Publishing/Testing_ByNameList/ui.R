@@ -16,8 +16,24 @@ shinyUI(
       )),
     dashboardBody(
       shinyDashboardThemes(
-        # theme = "poor_mans_flatly"
-        theme = "grey_light"
+        theme = "poor_mans_flatly"
+        # theme = "grey_light"
+      ),
+      tags$style(HTML(".box.box-solid.box-primary>.box-header {}
+                .box.box-solid.box-primary{background:#222d32}
+                .box.box-solid.box-warning>.box-header {}
+                .box.box-solid.box-warning{background:#222d32}
+                .box.box-solid.box-danger>.box-header {
+                color:#ffffff; background:MistyRose}
+                .box.box-solid.box-danger{
+                  background:MistyRose;
+                  border-bottom-color:LightPink;
+                  border-left-color:LightPink;
+                  border-right-color:LightPink;
+                  border-top-color:LightPink;
+                }"),
+        type = 'text/css',
+        '.modal-dialog { width: fit-content !important; }'
       ),
       tabItems(
         tabItem(
@@ -32,15 +48,32 @@ shinyUI(
             box(fileInput("file", "Import File Here", accept = ".zip"), 
                 width = 12)),)),
         tabItem(
-          tabName = "settings"
+          tabName = "settings",
+          fluidPage(
+            fluidRow(
+              box(width = 6, title = "test", status = "primary", solidHeader 
+                  = TRUE,
+                  "Box content"
+              )
+            ),
+            fluidRow(
+              box(width = 6, title = "XXX Veterans", status = "warning", solidHeader 
+                  = TRUE,
+                  "Are newly homeless"
+              )
+            ),
+            fluidRow(
+              box(width = 3, title = tags$b(textOutput("VBNL_active_text")), 
+                  status = "danger", solidHeader 
+                  = TRUE,
+                  "Are newly homeless"
+              )
+            )
+          )
           ),
         tabItem(
           tabName = "VBNL",
           fluidPage(
-            tags$style(
-              type = 'text/css',
-              '.modal-dialog { width: fit-content !important; }'
-            ),
           titlePanel("Veteran By-Name List"),
           fluidRow(box(htmlOutput(
             "datesVBNL"

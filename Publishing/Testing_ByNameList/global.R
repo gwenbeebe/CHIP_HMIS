@@ -8,6 +8,17 @@ library(DT)
 
 options(shiny.maxRequestSize = 30*1024^2)
 `%nin%` = Negate(`%in%`)
+library(fresh)
+custom_colors_theme <- create_theme(
+  bs4dash_color(
+    lightblue = "#136377",
+    olive = "#d8bc66",
+    lime = "#fcec0c",
+    orange = "#978d01",
+    maroon = "#58482c",
+    gray_x_light = "#d1c5c0"
+  )
+)
 
 hud_service_data <- read.csv("https://raw.githubusercontent.com/gwenbeebe/CHIP_HMIS/main/Publishing/NHSDC_ByNameList/SupplementalData_ServiceGroups.csv") %>%
   left_join(read.csv("https://raw.githubusercontent.com/gwenbeebe/CHIP_HMIS/main/Publishing/NHSDC_ByNameList/SupplementalData_Services.csv"), 
