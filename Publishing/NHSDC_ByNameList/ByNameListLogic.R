@@ -258,6 +258,7 @@ all_events <- cls_events %>%
   arrange(PersonalID, desc(EffectiveDate), desc(ClientStatus)) %>%
   distinct(PersonalID, EffectiveDate, .keep_all = TRUE)
 
+tic()
 client_statuses <- all_events %>%
   select(PersonalID, EffectiveDate, ClientStatus) %>%
   group_by(PersonalID) %>%
@@ -281,7 +282,7 @@ client_statuses <- all_events %>%
                     PriorStatus == "Housed" &
                     EffectiveDate >= end_date - ddays(90), na.rm = TRUE))) %>%
   slice(1L) %>%
-  filter(HomelessEventInPeriod == 1) %>%
+  # filter(HomelessEventInPeriod == 1) %>%
   ungroup() %>%
   mutate(CurrentStatus = case_when(
     ClientStatus == "Housed" ~ "Housed",
@@ -293,10 +294,18 @@ client_statuses <- all_events %>%
     TRUE ~ "Active"
   )) %>%
   select(PersonalID, CurrentStatus, IdentificationDate)
+toc()
 
 vet_statuses <- client_statuses %>%
-  filter(CurrentStatus != "Housed") %>%
+  filter(CurrentStatus != "Housed" &
+           CurrentStatus != "Inactive") %>%
   inner_join(client_data %>%
            filter(VeteranStatus ==1) %>%
            select(PersonalID), by = "PersonalID") %>%
   mutate(PersonalID = as.integer(PersonalID))
+
+
+all_events[which(vet_statuses[input$veteran_by_name_list_rows_selected,1]==all_events$PersonalID),]
+
+
+all_events[which(vet_statuses[[4,1]]==(all_events$PersonalID)),]
