@@ -21,12 +21,14 @@ shinyUI(
         menuItem("Tool Setup",
                  menuSubItem("Import HUD CSV", 
                              icon = icon("file-import"), tabName = "hud_import"),
-                 menuSubItem("Optional Settings", 
+                 menuSubItem("Optional Settings",
                              icon = icon("gear", verify_fa = FALSE), tabName = "settings"),
                  startExpanded = TRUE),
         menuItem("By-Name Lists",
                  menuSubItem("Veteran By Name List",
                              icon = icon("flag-usa"), tabName = "VBNL"),
+                 menuSubItem("Chronic By Name List",
+                             icon = icon("hourglass"), tabName = "CBNL"),
                  startExpanded = TRUE),
         menuItem("Tool Information",
                  menuSubItem("Tool Information",
@@ -122,7 +124,7 @@ shinyUI(
             titlePanel("Veteran By-Name List"),
             fluidRow(box(solidHeader = TRUE, status = "primary",
                          htmlOutput(
-                           "datesVBNL"
+                           "effective_date"
                          ), width = 12)),
             fluidRow(
               infoBoxOutput("VBNL_active", width = 6),
@@ -133,6 +135,25 @@ shinyUI(
             fluidRow(
               box(
                 dataTableOutput("veteran_by_name_list"),
+                width = 12))
+          )),
+        tabItem(
+          tabName = "CBNL",
+          fluidPage(
+            titlePanel("Chronic By-Name List"),
+            fluidRow(box(solidHeader = TRUE, status = "primary",
+                         htmlOutput(
+                           "effective_date"
+                         ), width = 12)),
+            # fluidRow(
+            #   infoBoxOutput("VBNL_active", width = 6),
+            #   infoBoxOutput("VBNL_newly", width = 6)),
+            # fluidRow(
+            #   infoBoxOutput("VBNL_return_h", width = 6),
+            #   infoBoxOutput("VBNL_return_i", width = 6)),
+            fluidRow(
+              box(
+                dataTableOutput("chronic_by_name_list"),
                 width = 12))
           ))
       )

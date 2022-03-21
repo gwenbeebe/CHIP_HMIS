@@ -266,11 +266,45 @@ server <- function(input, output, session) {
       arrange(PersonalID)
   })
   
+  chronic_folks <- reactive({
+    if(is.null(input$file)){return ()}
+    enrollment_data() %>%
+      inner_join(client_data() %>%
+                   filter(DOB <= end_date - years(18)) %>%
+                   select(PersonalID), by = "PersonalID") %>%
+      arrange(desc(EntryDate)) %>%
+      group_by(PersonalID) %>%
+      slice(1:3) %>%
+      ungroup() %>%
+      filter(DisablingCondition == 1) %>%
+      dplyr::mutate(SinglyChronic =
+                      if_else(((ymd(DateToStreetESSH) + days(365) <= ymd(EntryDate) &
+                                  !is.na(DateToStreetESSH)) |
+                                 (
+                                   MonthsHomelessPastThreeYears %in% c(112, 113) &
+                                     TimesHomelessPastThreeYears == 4 &
+                                     !is.na(MonthsHomelessPastThreeYears) &
+                                     !is.na(TimesHomelessPastThreeYears)
+                                 )
+                      ), 1, 0)) %>%
+      select(PersonalID, SinglyChronic) %>%
+      group_by(PersonalID) %>%
+      summarise(SinglyChronic = max(SinglyChronic)) %>%
+      filter(SinglyChronic == 1)
+  })
   
-  
+  chronic_statuses <- reactive({
+    if(is.null(input$file)){return ()}
+    client_statuses() %>%
+      inner_join(chronic_folks() %>%
+                   select(PersonalID), by = "PersonalID") %>%
+      mutate(PersonalID = as.integer(PersonalID),
+             IdentificationDate = ymd(IdentificationDate)) %>%
+      arrange(PersonalID)
+  })
   
   #########################
-  output$datesVBNL <- renderUI({
+  output$effective_date <- renderUI({
     h4(
       if(is.null(input$file)){"No data uploaded"}
       else{
@@ -359,5 +393,24 @@ server <- function(input, output, session) {
         })
       ))
   })
+  
+  ###############
+  
+  output$chronic_by_name_list <- renderDataTable({
+    if(is.null(input$file)){return ()}
+    DT::datatable(
+      chronic_statuses(),
+      options = list(
+        pageLength = 50, 
+        initComplete = JS(
+          "function(settings, json) {",
+          "$('th').css({'text-align': 'center'});",
+          "$('td').css({'text-align': 'center'});",
+          "}")),
+      selection = "single",
+      rownames = FALSE) %>%
+      formatStyle("PersonalID", `text-align` = 'center')
+  })
+  
   
 }
