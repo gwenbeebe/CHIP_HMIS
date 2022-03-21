@@ -13,27 +13,6 @@
 
 server <- function(input, output, session) {
   
-  output$filedf <- renderTable({
-    if(is.null(input$file)){return ()}
-    input$file # the file input data frame object that contains the file attributes
-  })
-  
-  
-  # Unzipping files on click of button and then rendering the result to dataframe
-  observeEvent(input$unzip,
-               output$zipped <- renderTable({
-                 unzip(input$file$datapath, list = TRUE, exdir = getwd())
-               })
-               
-  )
-  
-  
-  #########################################
-  
-  
-  
-  
-  
   ##  load in all files
   export_data <- reactive({
     if(is.null(input$file)){return ()}
@@ -234,7 +213,7 @@ server <- function(input, output, session) {
       arrange(PersonalID, desc(EffectiveDate), desc(ClientStatus)) %>%
       distinct(PersonalID, EffectiveDate, .keep_all = TRUE) %>%
       mutate(before_inactive_date = 
-               if_else(EffectiveDate < end_date() - ddays(90), 1, 0))
+               if_else(EffectiveDate < end_date() - ddays(input$days_to_inactive), 1, 0))
   })
   
   client_statuses <- reactive({
@@ -246,7 +225,7 @@ server <- function(input, output, session) {
                     PriorStatus = dplyr::lead(ClientStatus),
                     HomelessPrior90 = ClientStatus == "Homeless" &
                       PriorStatus == "Homeless" &
-                      EffectiveDate - ddays(90) <= PriorDate &
+                      EffectiveDate - ddays(input$days_to_inactive) <= PriorDate &
                       !is.na(PriorStatus),
                     IdentificationDate = suppressWarnings(max(case_when(
                       ClientStatus == "Homeless" &
@@ -269,7 +248,7 @@ server <- function(input, output, session) {
           !HomelessEventBeforePeriod ~ "New to List",
         !HomelessEventInPeriod ~ "Inactive",
         HousedBefore == 1 ~ "Return From Housed",
-        IdentificationDate >= end_date() - ddays(90) ~ "Return From Inactive",
+        IdentificationDate >= end_date() - ddays(input$days_to_inactive) ~ "Return From Inactive",
         TRUE ~ "Active"
       )) %>%
       filter(CurrentStatus %nin% c("Housed", "Inactive")) %>%
@@ -303,61 +282,38 @@ server <- function(input, output, session) {
   output$VBNL_active <- renderValueBox({
     valueBox(paste(
       if(is.null(input$file)){"---"}
-      else{
-        nrow(vet_statuses() %>%
+      else{nrow(vet_statuses() %>%
                filter(CurrentStatus == "Active"))}, 
       "Veterans"),  
-      "are actively homeless", icon = icon("tent"),
-      color = "olive"
-    )
-  })
-  
-  ###
-  output$VBNL_active_text <- renderText({
-    paste(
-      if(is.null(input$file)){"---"}
-      else{
-        nrow(vet_statuses() %>%
-               filter(CurrentStatus == "Active"))},
-      "Veterans")
-  })
-  ###
+      "are actively homeless", icon = icon("campground"),
+      color = "olive")})
   
   output$VBNL_newly <- renderValueBox({
     valueBox(paste(
       if(is.null(input$file)){"---"}
-      else{
-        nrow(vet_statuses() %>%
+      else{nrow(vet_statuses() %>%
                filter(CurrentStatus == "New to List"))}, 
       "Veterans"),  
-      "are newly homeless", icon = icon("tent"),
-      color = "olive"
-    )
-  })
+      "are newly homeless", icon = icon("car-side"),
+      color = "olive")})
   
   output$VBNL_return_h <- renderValueBox({
     valueBox(paste(
       if(is.null(input$file)){"---"}
-      else{
-        nrow(vet_statuses() %>%
+      else{nrow(vet_statuses() %>%
                filter(CurrentStatus == "Return From Housed"))}, 
       "Veterans"),  
-      "have returned from housing", icon = icon("tent"),
-      color = "olive"
-    )
-  })
+      "have returned from housing", icon = icon("house-damage"),
+      color = "olive")})
   
   output$VBNL_return_i <- renderValueBox({
     valueBox(paste(
       if(is.null(input$file)){"---"}
-      else{
-        nrow(vet_statuses() %>%
+      else{nrow(vet_statuses() %>%
                filter(CurrentStatus == "Return From Inactive"))}, 
       "Veterans"),  
-      "have returned from inactive", icon = icon("tent"),
-      color = "olive"
-    )
-  })
+      "have returned from inactive", icon = icon("undo"),
+      color = "olive")})
   
   
   ##############################
@@ -377,9 +333,6 @@ server <- function(input, output, session) {
       rownames = FALSE) %>%
       formatStyle("PersonalID", `text-align` = 'center')
   })
-  
-  
-  
   
   VBNL_events <- reactive({
     all_events()[which(vet_statuses()[[input$veteran_by_name_list_rows_selected,1]]==all_events()$PersonalID),]

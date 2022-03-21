@@ -1,3 +1,17 @@
+# Copyright (C) 2022 Gwen Beebe
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details at
+# <https://www.gnu.org/licenses/>. 
+
+
 library(shiny)
 library(shinydashboard)
 library(shinyWidgets)
@@ -5,20 +19,10 @@ library(dashboardthemes)
 library(tidyverse)
 library(lubridate)
 library(DT)
+library(shinydashboardPlus)
 
 options(shiny.maxRequestSize = 30*1024^2)
 `%nin%` = Negate(`%in%`)
-library(fresh)
-custom_colors_theme <- create_theme(
-  bs4dash_color(
-    lightblue = "#136377",
-    olive = "#d8bc66",
-    lime = "#fcec0c",
-    orange = "#978d01",
-    maroon = "#58482c",
-    gray_x_light = "#d1c5c0"
-  )
-)
 
 hud_service_data <- read.csv("https://raw.githubusercontent.com/gwenbeebe/CHIP_HMIS/main/Publishing/NHSDC_ByNameList/SupplementalData_ServiceGroups.csv") %>%
   left_join(read.csv("https://raw.githubusercontent.com/gwenbeebe/CHIP_HMIS/main/Publishing/NHSDC_ByNameList/SupplementalData_Services.csv"), 
