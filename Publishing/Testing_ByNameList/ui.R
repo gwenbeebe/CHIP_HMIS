@@ -124,7 +124,7 @@ shinyUI(
             titlePanel("Veteran By-Name List"),
             fluidRow(box(solidHeader = TRUE, status = "primary",
                          htmlOutput(
-                           "effective_date"
+                           "effective_date_v"
                          ), width = 12)),
             fluidRow(
               infoBoxOutput("VBNL_active", width = 6),
@@ -143,14 +143,14 @@ shinyUI(
             titlePanel("Chronic By-Name List"),
             fluidRow(box(solidHeader = TRUE, status = "primary",
                          htmlOutput(
-                           "effective_date"
+                           "effective_date_c"
                          ), width = 12)),
-            # fluidRow(
-            #   infoBoxOutput("VBNL_active", width = 6),
-            #   infoBoxOutput("VBNL_newly", width = 6)),
-            # fluidRow(
-            #   infoBoxOutput("VBNL_return_h", width = 6),
-            #   infoBoxOutput("VBNL_return_i", width = 6)),
+            fluidRow(
+              infoBoxOutput("CBNL_active", width = 6),
+              infoBoxOutput("CBNL_newly", width = 6)),
+            fluidRow(
+              infoBoxOutput("CBNL_return_h", width = 6),
+              infoBoxOutput("CBNL_return_i", width = 6)),
             fluidRow(
               box(
                 dataTableOutput("chronic_by_name_list"),

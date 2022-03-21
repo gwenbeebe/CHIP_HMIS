@@ -270,7 +270,7 @@ server <- function(input, output, session) {
     if(is.null(input$file)){return ()}
     enrollment_data() %>%
       inner_join(client_data() %>%
-                   filter(DOB <= end_date - years(18)) %>%
+                   filter(DOB <= end_date() - years(18)) %>%
                    select(PersonalID), by = "PersonalID") %>%
       arrange(desc(EntryDate)) %>%
       group_by(PersonalID) %>%
@@ -292,7 +292,7 @@ server <- function(input, output, session) {
       summarise(SinglyChronic = max(SinglyChronic)) %>%
       filter(SinglyChronic == 1)
   })
-  
+
   chronic_statuses <- reactive({
     if(is.null(input$file)){return ()}
     client_statuses() %>%
@@ -304,7 +304,7 @@ server <- function(input, output, session) {
   })
   
   #########################
-  output$effective_date <- renderUI({
+  output$effective_date_v <- renderUI({
     h4(
       if(is.null(input$file)){"No data uploaded"}
       else{
@@ -395,13 +395,21 @@ server <- function(input, output, session) {
   })
   
   ###############
+  output$effective_date_c <- renderUI({
+    h4(
+      if(is.null(input$file)){"No data uploaded"}
+      else{
+        paste(
+          "Effective", format(end_date(), "%m-%d-%Y")
+        )})
+  })
   
   output$chronic_by_name_list <- renderDataTable({
     if(is.null(input$file)){return ()}
     DT::datatable(
       chronic_statuses(),
       options = list(
-        pageLength = 50, 
+        pageLength = 50,
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -412,5 +420,65 @@ server <- function(input, output, session) {
       formatStyle("PersonalID", `text-align` = 'center')
   })
   
+  output$CBNL_active <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(chronic_statuses() %>%
+                  filter(CurrentStatus == "Active"))}, 
+      "People"),  
+      "stayed active on the chronic list", icon = icon("campground"),
+      color = "red")})
   
+  output$CBNL_newly <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(chronic_statuses() %>%
+                  filter(CurrentStatus == "New to List"))}, 
+      "People"),  
+      "are new to the chronic list", icon = icon("car-side"),
+      color = "red")})
+  
+  output$CBNL_return_h <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(chronic_statuses() %>%
+                  filter(CurrentStatus == "Return From Housed"))}, 
+      "Chronic People"),  
+      "have returned from housing", icon = icon("house-damage"),
+      color = "red")})
+  
+  output$CBNL_return_i <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(chronic_statuses() %>%
+                  filter(CurrentStatus == "Return From Inactive"))}, 
+      "Chronic People"),  
+      "have returned from inactive", icon = icon("undo"),
+      color = "red")})
+  
+  CBNL_events <- reactive({
+    all_events()[which(chronic_statuses()[[input$chronic_by_name_list_rows_selected,1]]==all_events()$PersonalID),]
+  })
+  
+  observeEvent(input$chronic_by_name_list_rows_selected,{
+    showModal(
+      modalDialog(
+        renderDataTable({
+          DT::datatable(
+            CBNL_events() %>%
+              select(PersonalID, EffectiveDate, EventType, InformationSource, before_inactive_date),
+            options = list(
+              pageLength = 5,
+              columnDefs = list(list(targets = 4, visible = FALSE))
+            ),
+            rownames = FALSE) %>% 
+            formatStyle(
+              c("PersonalID", "EffectiveDate", "EventType", "InformationSource"),
+              'before_inactive_date',
+              # target = 'row',
+              backgroundColor = styleEqual(c(0, 1), c('White', 'WhiteSmoke'))
+            )
+        })
+      ))
+  })
 }
