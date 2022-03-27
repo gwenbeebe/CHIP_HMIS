@@ -20,6 +20,7 @@ library(tidyverse)
 library(lubridate)
 library(DT)
 library(shinydashboardPlus)
+library(colourpicker)
 
 options(shiny.maxRequestSize = 30*1024^2)
 `%nin%` = Negate(`%in%`)

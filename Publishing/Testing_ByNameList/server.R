@@ -82,7 +82,7 @@ server <- function(input, output, session) {
     if(is.null(input$file)){return ()}
     read_csv(unzip(input$file$datapath, "Client.csv"),
              col_types = "ccccciciDiiiiiiiiiiiiiciiiiiiiiiiiiiTTcTc") %>%
-      select(PersonalID, DOB, VeteranStatus)
+      select(PersonalID, DOB, VeteranStatus, FirstName, LastName)
   })
   
   #########################
@@ -106,6 +106,27 @@ server <- function(input, output, session) {
              OrganizationName, ProjectName, ExitDate, Destination)
   })
   
+  client_information <- reactive({
+    if(is.null(input$file)){return ()}
+    base_client_data <- client_data() %>%
+      mutate(Name = paste(str_to_title(FirstName), str_to_title(LastName))) %>%
+      select(-c(FirstName, LastName, DOB, VeteranStatus)) %>%
+      left_join(joined_enrollments() %>%
+                  filter(is.na(ExitDate)) %>%
+                  group_by(PersonalID) %>%
+                  summarise(ActiveEnrollments = paste(unique(ProjectName), collapse=", "),
+                            InHousingProgram = max(if_else(ProjectType %in% housing_program_types, 1, 0),  na.rm = TRUE),
+                            Sheltered = max(if_else(ProjectType %in% c(1, 2, 8), 1, 0),  na.rm = TRUE),
+                            InCES = max(if_else(ProjectType == 14, 1, 0),  na.rm = TRUE)), 
+                by = "PersonalID")
+    
+    if(is.null(input$additional_client_info)){return (base_client_data)}
+    else {return(base_client_data %>%
+                   left_join(read_csv(input$additional_client_info$datapath) %>%
+                               distinct(PersonalID, .keep_all = TRUE) %>%
+                               mutate(PersonalID = as.character(PersonalID)),
+                             by = "PersonalID"))}
+  })
   
   ########################
   
@@ -149,6 +170,7 @@ server <- function(input, output, session) {
     if(is.null(input$file)){return ()}
     joined_enrollments() %>%
       filter(MoveInDate >= start_date() &
+               MoveInDate <= end_date() &
                ProjectType %in% housing_program_types) %>%
       dplyr::mutate(ClientStatus = "Housed",
                     EventType = "Housing Move-In Date") %>%
@@ -184,16 +206,15 @@ server <- function(input, output, session) {
     joined_enrollments() %>%
       filter(
         (is.na(ExitDate) &
-           (ProjectType %in% homeless_program_types |
-              (ProjectType %in% housing_program_types &
-                 MoveInDate <= end_date()))) |
+           ProjectType %in% c(1, 2, 8, housing_program_types)) |
           Destination %in% c(homeless_situations, housed_situations)) %>%
       dplyr::mutate(EffectiveDate = if_else(is.na(ExitDate), end_date(), ExitDate),
                     ClientStatus = case_when(
-                      Destination %in% homeless_situations |
-                        (ProjectType %in% c(1, 2, 8) &
-                           is.na(ExitDate)) ~ "Homeless",
-                      TRUE ~ "Housed"),
+                      Destination %in% housed_situations |
+                        (ProjectType %in% housing_program_types &
+                           is.na(ExitDate) &
+                           MoveInDate <= end_date()) ~ "Housed",
+                      TRUE ~ "Homeless"),
                     EventType = case_when(
                       Destination %in% homeless_situations ~ "Homeless Exit From Program",
                       Destination %in% housed_situations ~ "Housed Exit From Program",
@@ -252,8 +273,13 @@ server <- function(input, output, session) {
         TRUE ~ "Active"
       )) %>%
       filter(CurrentStatus %nin% c("Housed", "Inactive")) %>%
-      select(PersonalID, CurrentStatus, IdentificationDate)
-  })
+      select(PersonalID, CurrentStatus, IdentificationDate) %>%
+      left_join(client_information(),
+                by = "PersonalID") %>%
+      select(c(InHousingProgram, Sheltered, InCES,
+               Name, PersonalID, CurrentStatus, IdentificationDate,
+               setdiff(colnames(client_information()), "Name")))
+  }) 
   
   vet_statuses <- reactive({
     if(is.null(input$file)){return ()}
@@ -263,7 +289,7 @@ server <- function(input, output, session) {
                    select(PersonalID), by = "PersonalID") %>%
       mutate(PersonalID = as.integer(PersonalID),
              IdentificationDate = ymd(IdentificationDate)) %>%
-      arrange(PersonalID)
+      arrange(PersonalID) 
   })
   
   chronic_folks <- reactive({
@@ -297,6 +323,92 @@ server <- function(input, output, session) {
     if(is.null(input$file)){return ()}
     client_statuses() %>%
       inner_join(chronic_folks() %>%
+                   select(PersonalID), by = "PersonalID") %>%
+      mutate(PersonalID = as.integer(PersonalID),
+             IdentificationDate = ymd(IdentificationDate)) %>%
+      arrange(PersonalID)
+  })
+  
+  recent_enrollments <- reactive({
+    if(is.null(input$file)){return ()}
+    enrollment_data() %>%
+      arrange(desc(EntryDate)) %>%
+      group_by(PersonalID) %>%
+      slice(1:3) %>%
+      ungroup() 
+  })
+      
+  youth <- reactive({
+    if(is.null(input$file)){return ()}
+    recent_enrollments() %>%
+      inner_join(client_data() %>%
+                   filter(DOB <= end_date() - years(18) &
+                            DOB > end_date() - years(25)) %>%
+                   select(PersonalID), by = "PersonalID") %>%
+      filter(RelationshipToHoH %in% c(1, 3)) %>%
+      dplyr::mutate(YouthFlag = 1) %>%
+      select(PersonalID, YouthFlag) %>%
+      group_by(PersonalID) %>%
+      slice(1L) %>%
+      ungroup()
+  })
+  
+  youth_statuses <- reactive({
+    if(is.null(input$file)){return ()}
+    client_statuses() %>%
+      inner_join(youth() %>%
+                   select(PersonalID), by = "PersonalID") %>%
+      mutate(PersonalID = as.integer(PersonalID),
+             IdentificationDate = ymd(IdentificationDate)) %>%
+      arrange(PersonalID)
+  })
+  
+  family_sizes <- reactive({
+    if(is.null(input$file)){return ()}
+    enrollment_data() %>%
+      inner_join(enrollment_data() %>%
+                   distinct(PersonalID, HouseholdID, .keep_all = TRUE) %>%
+                   inner_join(client_data() %>%
+                                filter(DOB > end_date() - years(18)) %>%
+                                select(PersonalID), by = "PersonalID") %>%
+                   group_by(HouseholdID) %>%
+                   summarise(NumberOfChildren = n()) %>%
+                   filter(NumberOfChildren > 0),
+                 by = "HouseholdID") %>%
+      distinct(PersonalID, HouseholdID, .keep_all = TRUE) %>%
+      group_by(HouseholdID, NumberOfChildren) %>% 
+      summarise(HouseholdSize = n()) %>%
+      filter(NumberOfChildren < HouseholdSize)
+  })
+  
+  families <- reactive({
+    if(is.null(input$file)){return ()}
+    recent_enrollments() %>%
+      inner_join(family_sizes(), by = "HouseholdID") %>%
+      filter(RelationshipToHoH == 1) %>%
+      arrange(desc(EntryDate)) %>%
+      select(PersonalID, NumberOfChildren, HouseholdSize) %>%
+      group_by(PersonalID) %>%
+      slice(1L) %>%
+      ungroup()
+  })
+  
+  family_statuses <- reactive({
+    if(is.null(input$file)){return ()}
+    client_statuses() %>%
+      inner_join(families() %>%
+                   select(PersonalID, NumberOfChildren, HouseholdSize), 
+                 by = "PersonalID") %>%
+      mutate(PersonalID = as.integer(PersonalID),
+             IdentificationDate = ymd(IdentificationDate)) %>%
+      arrange(PersonalID)
+  })
+  
+  all_statuses <- reactive({
+    if(is.null(input$file)){return ()}
+    client_statuses() %>%
+      inner_join(client_data() %>%
+                   filter(DOB <= end_date() - years(18)) %>%
                    select(PersonalID), by = "PersonalID") %>%
       mutate(PersonalID = as.integer(PersonalID),
              IdentificationDate = ymd(IdentificationDate)) %>%
@@ -357,7 +469,8 @@ server <- function(input, output, session) {
     DT::datatable(
       vet_statuses(),
       options = list(
-        pageLength = 50, 
+        pageLength = 50,
+        columnDefs = list(list(targets = 2, visible = FALSE)),
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -365,7 +478,10 @@ server <- function(input, output, session) {
           "}")),
       selection = "single",
       rownames = FALSE) %>%
-      formatStyle("PersonalID", `text-align` = 'center')
+      formatStyle("PersonalID", `text-align` = 'center')%>% 
+      formatStyle(
+        'PersonalID', 'InCES',
+        backgroundColor = styleEqual(1, 'yellow'))
   })
   
   VBNL_events <- reactive({
@@ -472,6 +588,271 @@ server <- function(input, output, session) {
               columnDefs = list(list(targets = 4, visible = FALSE))
             ),
             rownames = FALSE) %>% 
+            formatStyle(
+              c("PersonalID", "EffectiveDate", "EventType", "InformationSource"),
+              'before_inactive_date',
+              # target = 'row',
+              backgroundColor = styleEqual(c(0, 1), c('White', 'WhiteSmoke'))
+            )
+        })
+      ))
+  })
+  
+  ###############
+  output$effective_date_y <- renderUI({
+    h4(
+      if(is.null(input$file)){"No data uploaded"}
+      else{
+        paste(
+          "Effective", format(end_date(), "%m-%d-%Y")
+        )})
+  })
+  
+  output$youth_by_name_list <- renderDataTable({
+    if(is.null(input$file)){return ()}
+    DT::datatable(
+      youth_statuses(),
+      options = list(
+        pageLength = 50,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$('th').css({'text-align': 'center'});",
+          "$('td').css({'text-align': 'center'});",
+          "}")),
+      selection = "single",
+      rownames = FALSE) %>%
+      formatStyle("PersonalID", `text-align` = 'center')
+  })
+  
+  output$YBNL_active <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(youth_statuses() %>%
+                  filter(CurrentStatus == "Active"))}, 
+      "Youth"),  
+      "are actively homeless", icon = icon("campground"),
+      color = "yellow")})
+  
+  output$YBNL_newly <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(youth_statuses() %>%
+                  filter(CurrentStatus == "New to List"))}, 
+      "Youth"),  
+      "are newly homeless", icon = icon("car-side"),
+      color = "yellow")})
+  
+  output$YBNL_return_h <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(youth_statuses() %>%
+                  filter(CurrentStatus == "Return From Housed"))}, 
+      "Youth"),  
+      "have returned from housing", icon = icon("house-damage"),
+      color = "yellow")})
+  
+  output$YBNL_return_i <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(youth_statuses() %>%
+                  filter(CurrentStatus == "Return From Inactive"))}, 
+      "Youth"),  
+      "have returned from inactive", icon = icon("undo"),
+      color = "yellow")})
+  
+  YBNL_events <- reactive({
+    all_events()[which(youth_statuses()[[input$youth_by_name_list_rows_selected,1]]==all_events()$PersonalID),]
+  })
+  
+  observeEvent(input$youth_by_name_list_rows_selected,{
+    showModal(
+      modalDialog(
+        renderDataTable({
+          DT::datatable(
+            YBNL_events() %>%
+              select(PersonalID, EffectiveDate, EventType, InformationSource, before_inactive_date),
+            options = list(
+              pageLength = 5,
+              columnDefs = list(list(targets = 4, visible = FALSE))
+            ),
+            rownames = FALSE) %>% 
+            formatStyle(
+              c("PersonalID", "EffectiveDate", "EventType", "InformationSource"),
+              'before_inactive_date',
+              # target = 'row',
+              backgroundColor = styleEqual(c(0, 1), c('White', 'WhiteSmoke'))
+            )
+        })
+      ))
+  })
+  
+  
+  ###############
+  output$effective_date_f <- renderUI({
+    h4(
+      if(is.null(input$file)){"No data uploaded"}
+      else{
+        paste(
+          "Effective", format(end_date(), "%m-%d-%Y")
+        )})
+  })
+  
+  output$family_by_name_list <- renderDataTable({
+    if(is.null(input$file)){return ()}
+    DT::datatable(
+      family_statuses(),
+      options = list(
+        pageLength = 50,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$('th').css({'text-align': 'center'});",
+          "$('td').css({'text-align': 'center'});",
+          "}")),
+      selection = "single",
+      rownames = FALSE) %>%
+      formatStyle("PersonalID", `text-align` = 'center')
+  })
+  
+  output$FBNL_active <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(family_statuses() %>%
+                  filter(CurrentStatus == "Active"))}, 
+      "Families"),  
+      "are actively homeless", icon = icon("campground"),
+      color = "purple")})
+  
+  output$FBNL_newly <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(family_statuses() %>%
+                  filter(CurrentStatus == "New to List"))}, 
+      "Families"),  
+      "are newly homeless", icon = icon("car-side"),
+      color = "purple")})
+  
+  output$FBNL_return_h <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(family_statuses() %>%
+                  filter(CurrentStatus == "Return From Housed"))}, 
+      "Families"),  
+      "have returned from housing", icon = icon("house-damage"),
+      color = "purple")})
+  
+  output$FBNL_return_i <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(family_statuses() %>%
+                  filter(CurrentStatus == "Return From Inactive"))}, 
+      "Families"),  
+      "have returned from inactive", icon = icon("undo"),
+      color = "purple")})
+  
+  FBNL_events <- reactive({
+    all_events()[which(family_statuses()[[input$family_by_name_list_rows_selected,1]]==all_events()$PersonalID),]
+  })
+  
+  observeEvent(input$family_by_name_list_rows_selected,{
+    showModal(
+      modalDialog(
+        renderDataTable({
+          DT::datatable(
+            FBNL_events() %>%
+              select(PersonalID, EffectiveDate, EventType, InformationSource, before_inactive_date),
+            options = list(
+              pageLength = 5,
+              columnDefs = list(list(targets = 4, visible = FALSE))
+            ),
+            rownames = FALSE) %>% 
+            formatStyle(
+              c("PersonalID", "EffectiveDate", "EventType", "InformationSource"),
+              'before_inactive_date',
+              # target = 'row',
+              backgroundColor = styleEqual(c(0, 1), c('White', 'WhiteSmoke'))
+            )
+        })
+      ))
+  })
+  
+  ###############
+  output$effective_date <- renderUI({
+    h4(
+      if(is.null(input$file)){"No data uploaded"}
+      else{
+        paste(
+          "Effective", format(end_date(), "%m-%d-%Y")
+        )})
+  })
+
+  output$by_name_list <- renderDataTable({
+    if(is.null(input$file)){return ()}
+    DT::datatable(
+      all_statuses(),
+      options = list(
+        pageLength = 50,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$('th').css({'text-align': 'center'});",
+          "$('td').css({'text-align': 'center'});",
+          "}")),
+      selection = "single",
+      rownames = FALSE) %>%
+      formatStyle("PersonalID", `text-align` = 'center')
+  })
+
+  output$BNL_active <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(all_statuses() %>%
+                  filter(CurrentStatus == "Active"))},
+      "People"),
+      "are actively homeless", icon = icon("campground"),
+      color = "teal")})
+
+  output$BNL_newly <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(all_statuses() %>%
+                  filter(CurrentStatus == "New to List"))},
+      "People"),
+      "are newly homeless", icon = icon("car-side"),
+      color = "teal")})
+
+  output$BNL_return_h <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(all_statuses() %>%
+                  filter(CurrentStatus == "Return From Housed"))},
+      "People"),
+      "have returned from housing", icon = icon("house-damage"),
+      color = "teal")})
+
+  output$BNL_return_i <- renderValueBox({
+    valueBox(paste(
+      if(is.null(input$file)){"---"}
+      else{nrow(all_statuses() %>%
+                  filter(CurrentStatus == "Return From Inactive"))},
+      "People"),
+      "have returned from inactive", icon = icon("undo"),
+      color = "teal")})
+
+  BNL_events <- reactive({
+    all_events()[which(all_statuses()[[input$by_name_list_rows_selected,1]]==all_events()$PersonalID),]
+  })
+
+  observeEvent(input$by_name_list_rows_selected,{
+    showModal(
+      modalDialog(
+        renderDataTable({
+          DT::datatable(
+            BNL_events() %>%
+              select(PersonalID, EffectiveDate, EventType, InformationSource, before_inactive_date),
+            options = list(
+              pageLength = 5,
+              columnDefs = list(list(targets = 4, visible = FALSE))
+            ),
+            rownames = FALSE) %>%
             formatStyle(
               c("PersonalID", "EffectiveDate", "EventType", "InformationSource"),
               'before_inactive_date',

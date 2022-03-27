@@ -70,7 +70,7 @@ cls_data <- read_csv(unzip(zip_file, "CurrentLivingSituation.csv"),
 
 client_data <- read_csv(unzip(zip_file, "Client.csv"),
                         col_types = "ccccciciDiiiiiiiiiiiiiciiiiiiiiiiiiiTTcTc") %>%
-  select(PersonalID, DOB, VeteranStatus)
+  select(PersonalID, DOB, VeteranStatus, FirstName, LastName)
 
 
 ##  run event calculations
@@ -153,6 +153,70 @@ other_enrollment_events <- enrollment_data %>%
 
 # Add Chronicity ----------------------------------------------------------
 {
+  tic("one")
+  test <- enrollment_data %>%
+    arrange(desc(EntryDate)) %>%
+    group_by(PersonalID) %>%
+    slice(1:3) %>%
+    ungroup() %>%
+    dplyr::mutate(SinglyChronic =
+                    if_else(((ymd(DateToStreetESSH) + days(365) <= ymd(EntryDate) &
+                                !is.na(DateToStreetESSH)) |
+                               (
+                                 MonthsHomelessPastThreeYears %in% c(112, 113) &
+                                   TimesHomelessPastThreeYears == 4 &
+                                   !is.na(MonthsHomelessPastThreeYears) &
+                                   !is.na(TimesHomelessPastThreeYears)
+                               )
+                    ) &
+                      DisablingCondition == 1 &
+                      !is.na(DisablingCondition), 1, 0))
+  toc("one")
+  tic("two")
+  test <- enrollment_data %>%
+    filter(!is.na(DisablingCondition)) %>%
+    arrange(desc(EntryDate)) %>%
+    group_by(PersonalID) %>%
+    slice(1:3) %>%
+    ungroup() %>%
+    dplyr::mutate(SinglyChronic =
+                    if_else(((ymd(DateToStreetESSH) + days(365) <= ymd(EntryDate) &
+                                !is.na(DateToStreetESSH)) |
+                               (
+                                 MonthsHomelessPastThreeYears %in% c(112, 113) &
+                                   TimesHomelessPastThreeYears == 4 &
+                                   !is.na(MonthsHomelessPastThreeYears) &
+                                   !is.na(TimesHomelessPastThreeYears)
+                               )
+                    ) &
+                      DisablingCondition == 1 &
+                      !is.na(DisablingCondition), 1, 0))
+  toc("two")
+  tic("three")
+  test <- enrollment_data %>%
+    inner_join(client_data %>%
+                 filter(DOB <= end_date - years(18)) %>%
+                 select(PersonalID), by = "PersonalID") %>%
+    arrange(desc(EntryDate)) %>%
+    group_by(PersonalID) %>%
+    slice(1:3) %>%
+    ungroup() %>%
+    filter(DisablingCondition == 1) %>%
+    dplyr::mutate(SinglyChronic =
+                    if_else(((ymd(DateToStreetESSH) + days(365) <= ymd(EntryDate) &
+                                !is.na(DateToStreetESSH)) |
+                               (
+                                 MonthsHomelessPastThreeYears %in% c(112, 113) &
+                                   TimesHomelessPastThreeYears == 4 &
+                                   !is.na(MonthsHomelessPastThreeYears) &
+                                   !is.na(TimesHomelessPastThreeYears)
+                               )
+                    ), 1, 0)) %>%
+    select(PersonalID, SinglyChronic) %>%
+    group_by(PersonalID) %>%
+    summarise(SinglyChronic = max(SinglyChronic))
+  toc("three")
+  
   # creating a small basic dataframe to work with
   smallEnrollment <- enrollment_data %>%
     select(EnrollmentID, PersonalID, HouseholdID, LivingSituation, EntryDate,
@@ -309,3 +373,69 @@ all_events[which(vet_statuses[input$veteran_by_name_list_rows_selected,1]==all_e
 
 
 all_events[which(vet_statuses[[4,1]]==(all_events$PersonalID)),]
+
+###################
+
+enrollment_data <- enrollment_data %>%
+  distinct(HouseholdID, PersonalID, .keep_all = TRUE)
+
+test <- enrollment_data %>%
+  left_join(enrollment_data %>% 
+              filter(RelationshipToHoH == 1) %>%
+              group_by(HouseholdID) %>% 
+              summarise(hohs = n()) %>%
+              ungroup() %>%
+              select(HouseholdID, hohs), 
+            by = "HouseholdID") %>%
+  mutate(hohs = if_else(is.na(hohs), as.integer(0), hohs))
+
+
+# assigning hoh status to the oldest person in the hh
+Adjusted_HoHs <- test %>%
+  filter(hohs != 1) %>%
+  left_join(client_data %>%
+              select(PersonalID, DOB),
+            by = "PersonalID") %>%
+  group_by(HouseholdID) %>%
+  arrange(DOB) %>% # picking oldest hh member
+  slice(1L) %>% 
+  mutate(RelationshipToHoH = 1) %>%
+  ungroup() 
+
+adjusted_non_hohs <- test %>%
+  filter(hohs > 1) %>%
+  anti_join(Adjusted_HoHs %>%
+              select(EnrollmentID),
+            by = "EnrollmentID") %>% 
+  mutate(if_else(RelationshipToHoH == 1, as.integer(99), RelationshipToHoH))
+         
+# merging the "corrected" hohs back into the main dataset with a flag, then
+# correcting the RelationshipToHoH
+hohs <- enrollment_data %>%
+  left_join(Adjusted_HoHs,
+            by = c("EnrollmentID")) %>%
+  mutate(RelationshipToHoH = if_else(correctedhoh == 1, as.integer(1), RelationshipToHoH)) %>%
+  select(EnrollmentID, correctedhoh)
+
+active_list <- enrollment_data %>%
+  left_join(hohs, by = "EnrollmentID") %>%
+  group_by(HouseholdID) %>%
+  mutate(correctedhoh = if_else(is.na(correctedhoh), 0, 1),
+         HH_DQ_Issue = max(correctedhoh)) %>%
+  ungroup()
+
+###################
+
+
+
+arrange(desc(EntryDate)) %>%
+  group_by(PersonalID) %>%
+  slice(1:3) %>%
+  ungroup() %>%
+  filter(RelationshipToHoH == 1) %>%
+  dplyr::mutate(YouthFlag = 1) %>%
+  select(PersonalID, YouthFlag) %>%
+  group_by(PersonalID) %>%
+  slice(1L) %>%
+  ungroup()
+

@@ -25,15 +25,25 @@ shinyUI(
                              icon = icon("gear", verify_fa = FALSE), tabName = "settings"),
                  startExpanded = TRUE),
         menuItem("By-Name Lists",
-                 menuSubItem("Veteran By Name List",
+                 menuSubItem("Veteran By-Name List",
                              icon = icon("flag-usa"), tabName = "VBNL"),
-                 menuSubItem("Chronic By Name List",
+                 menuSubItem("Chronic By-Name List",
                              icon = icon("hourglass"), tabName = "CBNL"),
-                 startExpanded = TRUE),
-        menuItem("Tool Information",
+                 menuSubItem("Youth By-Name List",
+                             icon = icon("user"), tabName = "YBNL"),
+                 menuSubItem("Family By-Name List",
+                             icon = icon("child"), tabName = "FBNL"),
+                 menuSubItem("Full By-Name List",
+                             icon = icon("users"), tabName = "BNL")
+                 #, startExpanded = TRUE
+        ),
+        menuItem("Other Information",
+                 menuSubItem("Event Overview",
+                             icon = icon("chart-bar"), tabName = "analytics"),
                  menuSubItem("Tool Information",
-                             icon = icon("info-circle"), tabName = "information"),
-                 startExpanded = TRUE)
+                             icon = icon("info-circle"), tabName = "information")
+                 # , startExpanded = TRUE
+        )
       )),
     dashboardBody(
       shinyDashboardThemes(
@@ -52,7 +62,7 @@ shinyUI(
             fluidRow(
               box(solidHeader = TRUE, title = "Import File Here",
                   fileInput("file", " ", accept = ".zip"), 
-                  width = 12, status = "primary")),)),
+                  width = 12, status = "primary")))),
         tabItem(
           tabName = "settings",
           fluidPage(
@@ -62,12 +72,20 @@ shinyUI(
                   numericInput("days_to_inactive", "", 90),
                   status = "primary", width = 4, solidHeader = TRUE
               ),
-              box(
-                status = "primary", width = 4
+              box(title = "Open Enrollments to Include",
+                  status = "primary", width = 4, solidHeader = TRUE
               ),
-              box(
-                status = "primary", width = 4
-              )))),
+              box(title = "Color Controls",
+                  colourInput("housing_color", "In Housing Program", "red"),
+                  colourInput("shelter_color", "Sheltered", "red"),
+                  colourInput("ces_color", "In Coordinated Entry", "red"),
+                  status = "primary", width = 4, solidHeader = TRUE
+              )),
+            fluidRow(
+              box(solidHeader = TRUE, title = "Additional Client Information",
+                  fileInput("additional_client_info", "If you have a .csv file with extra client information, you can upload it here. The client identifier column MUST be called PersonalID, and only the first row for each client will be kept.", 
+                            accept = ".csv"), 
+                  width = 12, status = "primary")))),
         tabItem(
           tabName = "information",
           fluidPage(
@@ -75,9 +93,47 @@ shinyUI(
             fluidRow(box(
               title = "Why would I use this?", status = "primary", width = 12, solidHeader = TRUE,
               collapsible = TRUE, collapsed = TRUE,
-              "The idea behind a by-name list is to help a CoC identify who is experiencing homelessness "
-              ),
-              box(
+              "The idea behind a by-name list is to help a CoC identify who is experiencing homelessness. Many by-name lists are based on open enrollments, but this by-name list is designed to incorporate other kinds of client interactions with HMIS such as exit destinations, services provided, and current living situation records.", br(), br(), 
+              "Many CoCs have developed by-name lists in-house or through their HMIS vendor that work well for their communities. This tool was developed and published in hopes that it can help other CoCs that do not have capacity to create a list internally but are interested in using one for case conferencing or other resource targeting."
+            )),
+            fluidRow(box(
+              title = "What do these client statuses mean?", status = "primary", width = 12, solidHeader = TRUE,
+              collapsible = TRUE, collapsed = TRUE,
+              "This tool calculates six different client statuses: Active, Inactive, Return From Inactive, Housed, Return From Housed, and New To List. These statuses are calculated from the distribution of client events compared to a user-specified period of time required for inactivity (default is 90 days). Inactive and housed clients are not displayed on the tool.", br(), br(), 
+              tags$ul(
+                tags$li("Active: Homeless events in the last inactive period and earlier, not returning from housed"), 
+                tags$li("Inactive: Most recent event indicated homelessness, but it is older than the inactive period"), 
+                tags$li("Return From Inactive: Client has homeless events in the inactive period and earlier, but has a gap between them of at least as long as the inactive period"),
+                tags$li("Housed: Most recent event was a housed event"),
+                tags$li("Return From Housed: At least one homeless event in the last inactive period that was immediately preceded by a housed event"),
+                tags$li("New To List: They only have homeless events, none before the inactive period")
+              )
+            )),
+            fluidRow(box(
+              title = "What are homeless and housed events?", status = "primary", width = 12, solidHeader = TRUE,
+              collapsible = TRUE, collapsed = TRUE,
+              "Homeless Events",
+              tags$ul(
+                tags$li("Enrollment dates into shelter, safe haven, transitional housing, or street outreach"), 
+                tags$li("Any enrollment date with a literally homeless prior living situation (includes actively fleeing DV)"), 
+                tags$li("Exit dates from shelter, safe haven, and transitional housing"), 
+                tags$li("Any exit date with a literally homeless destination"), 
+                tags$li("Open enrollments in shelter, safe have, transitional housing, or housing programs with no move-in dates"), 
+                tags$li("Current living situations indicating literal homelessness"), 
+                tags$li("Street outreach contact services"), 
+                tags$li("Any service from a homeless-specific program")
+              ), br(),
+              "Housed Events",
+              tags$ul(
+                tags$li("Any exit date to a housed desitnation"), 
+                tags$li("Open enrollment in a housing program with a move-in date"), 
+                tags$li("Housed current living situations"), 
+                tags$li("Rental assistance services"), 
+                tags$li("Deposit assistance services"), 
+                tags$li("Housing move-in dates")
+              )
+            )),
+            fluidRow(box(
               title = "Is this secure?", status = "primary", width = 12, solidHeader = TRUE,
               collapsible = TRUE, collapsed = TRUE, 
               "The safety and security of client information always comes first. Based on the following information provided by RStudio (the owner of shinyapps.io), I believe this is secure, but I am not a lawyer and final responsibility for our clients' information security lies with each of us. No client data is stored anywhere by my code, it exists only within the context of a given session.", br(), br(),
@@ -116,7 +172,7 @@ shinyUI(
               "Also please feel free to shoot me a note if this is even remotely useful to you! I'd love to hear about it.")),
             fluidRow(
               valueBox("Author", "Gwen Beebe", icon = icon("user-circle"), color = "navy", width = 6),
-              valueBox("Last Updated", "3/20/22", icon = icon("calendar"), color = "navy", width = 6)
+              valueBox("Last Updated", "3/26/22", icon = icon("calendar"), color = "navy", width = 6)
             ))),
         tabItem(
           tabName = "VBNL",
@@ -154,6 +210,63 @@ shinyUI(
             fluidRow(
               box(
                 dataTableOutput("chronic_by_name_list"),
+                width = 12))
+          )),
+        tabItem(
+          tabName = "YBNL",
+          fluidPage(
+            titlePanel("Youth By-Name List"),
+            fluidRow(box(solidHeader = TRUE, status = "primary",
+                         htmlOutput(
+                           "effective_date_y"
+                         ), width = 12)),
+            fluidRow(
+              infoBoxOutput("YBNL_active", width = 6),
+              infoBoxOutput("YBNL_newly", width = 6)),
+            fluidRow(
+              infoBoxOutput("YBNL_return_h", width = 6),
+              infoBoxOutput("YBNL_return_i", width = 6)),
+            fluidRow(
+              box(
+                dataTableOutput("youth_by_name_list"),
+                width = 12))
+          )),
+        tabItem(
+          tabName = "FBNL",
+          fluidPage(
+            titlePanel("Family By-Name List"),
+            fluidRow(box(solidHeader = TRUE, status = "primary",
+                         htmlOutput(
+                           "effective_date_f"
+                         ), width = 12)),
+            fluidRow(
+              infoBoxOutput("FBNL_active", width = 6),
+              infoBoxOutput("FBNL_newly", width = 6)),
+            fluidRow(
+              infoBoxOutput("FBNL_return_h", width = 6),
+              infoBoxOutput("FBNL_return_i", width = 6)),
+            fluidRow(
+              box(
+                dataTableOutput("family_by_name_list"),
+                width = 12))
+          )),
+        tabItem(
+          tabName = "BNL",
+          fluidPage(
+            titlePanel("All Adult By-Name List"),
+            fluidRow(box(solidHeader = TRUE, status = "primary",
+                         htmlOutput(
+                           "effective_date"
+                         ), width = 12)),
+            fluidRow(
+              infoBoxOutput("BNL_active", width = 6),
+              infoBoxOutput("BNL_newly", width = 6)),
+            fluidRow(
+              infoBoxOutput("BNL_return_h", width = 6),
+              infoBoxOutput("BNL_return_i", width = 6)),
+            fluidRow(
+              box(
+                dataTableOutput("by_name_list"),
                 width = 12))
           ))
       )
