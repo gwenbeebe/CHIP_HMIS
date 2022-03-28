@@ -76,9 +76,9 @@ shinyUI(
                   status = "primary", width = 4, solidHeader = TRUE
               ),
               box(title = "Color Controls",
-                  colourInput("housing_color", "In Housing Program", "red"),
-                  colourInput("shelter_color", "Sheltered", "red"),
-                  colourInput("ces_color", "In Coordinated Entry", "red"),
+                  colourInput("housing_color", "In Housing Program", "LightBlue"),
+                  colourInput("shelter_color", "Sheltered", "Thistle"),
+                  colourInput("ces_color", "In Coordinated Entry", "MistyRose"),
                   status = "primary", width = 4, solidHeader = TRUE
               )),
             fluidRow(

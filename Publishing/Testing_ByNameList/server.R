@@ -276,8 +276,8 @@ server <- function(input, output, session) {
       select(PersonalID, CurrentStatus, IdentificationDate) %>%
       left_join(client_information(),
                 by = "PersonalID") %>%
-      select(c(InHousingProgram, Sheltered, InCES,
-               Name, PersonalID, CurrentStatus, IdentificationDate,
+      select(c(PersonalID, InHousingProgram, Sheltered, InCES,
+               Name, CurrentStatus, IdentificationDate,
                setdiff(colnames(client_information()), "Name")))
   }) 
   
@@ -470,7 +470,7 @@ server <- function(input, output, session) {
       vet_statuses(),
       options = list(
         pageLength = 50,
-        columnDefs = list(list(targets = 2, visible = FALSE)),
+        columnDefs = list(list(targets = 1:3, visible = FALSE)),
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -478,10 +478,16 @@ server <- function(input, output, session) {
           "}")),
       selection = "single",
       rownames = FALSE) %>%
-      formatStyle("PersonalID", `text-align` = 'center')%>% 
+      formatStyle("PersonalID", `text-align` = 'center') %>% 
       formatStyle(
         'PersonalID', 'InCES',
-        backgroundColor = styleEqual(1, 'yellow'))
+        backgroundColor = styleEqual(1, input$ces_color)) %>% 
+      formatStyle(
+        'PersonalID', 'Sheltered',
+        backgroundColor = styleEqual(1, input$shelter_color)) %>% 
+      formatStyle(
+        'PersonalID', 'InHousingProgram',
+        backgroundColor = styleEqual(1, input$housing_color))
   })
   
   VBNL_events <- reactive({
@@ -526,6 +532,7 @@ server <- function(input, output, session) {
       chronic_statuses(),
       options = list(
         pageLength = 50,
+        columnDefs = list(list(targets = 1:3, visible = FALSE)),
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -533,7 +540,16 @@ server <- function(input, output, session) {
           "}")),
       selection = "single",
       rownames = FALSE) %>%
-      formatStyle("PersonalID", `text-align` = 'center')
+      formatStyle("PersonalID", `text-align` = 'center') %>% 
+      formatStyle(
+        'PersonalID', 'InCES',
+        backgroundColor = styleEqual(1, input$ces_color)) %>% 
+      formatStyle(
+        'PersonalID', 'Sheltered',
+        backgroundColor = styleEqual(1, input$shelter_color)) %>% 
+      formatStyle(
+        'PersonalID', 'InHousingProgram',
+        backgroundColor = styleEqual(1, input$housing_color))
   })
   
   output$CBNL_active <- renderValueBox({
@@ -614,6 +630,7 @@ server <- function(input, output, session) {
       youth_statuses(),
       options = list(
         pageLength = 50,
+        columnDefs = list(list(targets = 1:3, visible = FALSE)),
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -621,7 +638,16 @@ server <- function(input, output, session) {
           "}")),
       selection = "single",
       rownames = FALSE) %>%
-      formatStyle("PersonalID", `text-align` = 'center')
+      formatStyle("PersonalID", `text-align` = 'center') %>% 
+      formatStyle(
+        'PersonalID', 'InCES',
+        backgroundColor = styleEqual(1, input$ces_color)) %>% 
+      formatStyle(
+        'PersonalID', 'Sheltered',
+        backgroundColor = styleEqual(1, input$shelter_color)) %>% 
+      formatStyle(
+        'PersonalID', 'InHousingProgram',
+        backgroundColor = styleEqual(1, input$housing_color))
   })
   
   output$YBNL_active <- renderValueBox({
@@ -703,6 +729,7 @@ server <- function(input, output, session) {
       family_statuses(),
       options = list(
         pageLength = 50,
+        columnDefs = list(list(targets = 1:3, visible = FALSE)),
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -710,7 +737,16 @@ server <- function(input, output, session) {
           "}")),
       selection = "single",
       rownames = FALSE) %>%
-      formatStyle("PersonalID", `text-align` = 'center')
+      formatStyle("PersonalID", `text-align` = 'center') %>% 
+      formatStyle(
+        'PersonalID', 'InCES',
+        backgroundColor = styleEqual(1, input$ces_color)) %>% 
+      formatStyle(
+        'PersonalID', 'Sheltered',
+        backgroundColor = styleEqual(1, input$shelter_color)) %>% 
+      formatStyle(
+        'PersonalID', 'InHousingProgram',
+        backgroundColor = styleEqual(1, input$housing_color))
   })
   
   output$FBNL_active <- renderValueBox({
@@ -791,6 +827,7 @@ server <- function(input, output, session) {
       all_statuses(),
       options = list(
         pageLength = 50,
+        columnDefs = list(list(targets = 1:3, visible = FALSE)),
         initComplete = JS(
           "function(settings, json) {",
           "$('th').css({'text-align': 'center'});",
@@ -798,7 +835,16 @@ server <- function(input, output, session) {
           "}")),
       selection = "single",
       rownames = FALSE) %>%
-      formatStyle("PersonalID", `text-align` = 'center')
+      formatStyle("PersonalID", `text-align` = 'center') %>% 
+      formatStyle(
+        'PersonalID', 'InCES',
+        backgroundColor = styleEqual(1, input$ces_color)) %>% 
+      formatStyle(
+        'PersonalID', 'Sheltered',
+        backgroundColor = styleEqual(1, input$shelter_color)) %>% 
+      formatStyle(
+        'PersonalID', 'InHousingProgram',
+        backgroundColor = styleEqual(1, input$housing_color))
   })
 
   output$BNL_active <- renderValueBox({
