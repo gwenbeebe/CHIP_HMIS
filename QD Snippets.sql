@@ -9,25 +9,6 @@ VI-SPDAT category scores are in VISPDAT. for family, single, and TAY
 -------- calculate client age at entry ------------
 ---------------------------------------------------
 
-(
-	CONVERT(
-		int,
-		CONVERT(
-			char(8),
-			Enrollment.[EnrollDate],
-			Enrollment.[EnrollDate],
-			112)
-		)
-	-
-	CONVERT(
-		char(8),
-		cmClient.[Birthdate],
-		112
-		)
-)
-/10000
-
-
 DateDiff(year, cmClient.BirthDate, Enrollment.EnrollDate)
 
 ---------------------------------------------------
